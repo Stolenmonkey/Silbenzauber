@@ -16,7 +16,7 @@
 *,*:before,*:after{box-sizing:inherit}
 html,body{margin:0;min-height:100%}
 body{background:#d6e8fb;color:#1f2a44;font-family:"Arial Rounded MT Bold","Nunito","Trebuchet MS",system-ui,sans-serif;font-weight:600;-webkit-tap-highlight-color:transparent}
-main{max-width:720px;margin:0 auto;padding:20px 16px 32px;display:flex;flex-direction:column;gap:20px;min-height:100vh}
+main{max-width:720px;margin:0 auto;padding:20px 16px 32px;display:flex;flex-direction:column;gap:20px;min-height:100vh;min-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
 .sky,.lawn{pointer-events:none;flex:none}.sky svg{display:block;width:100%;height:56px}.lawn{margin-top:auto;padding-top:12px}.lawn svg{display:block;width:100%;height:clamp(84px,22vw,150px);border-radius:24px}
 main{position:relative;z-index:1}
 .head{display:flex;align-items:center;justify-content:center;gap:12px}
@@ -148,6 +148,16 @@ svg .d{fill:#1f2a44}
 .spark i:nth-child(16){--dx:97px;--dy:-31px}
 @keyframes burst{0%{opacity:1;transform:translate(0,0) scale(.3) rotate(0)}60%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.4) rotate(240deg)}}
 .spark.go i{animation:burst 1s ease-out 1}
+body.endpage main{padding:12px 16px 12px;gap:10px}
+body.endpage #end{gap:8px;padding:14px 18px}
+body.endpage #end .bigmascot{width:96px;height:104px}
+body.endpage #end h2{font-size:1.5rem;margin:2px 0}
+body.endpage #endSub{font-size:1.15rem!important}
+body.endpage #endTime{font-size:1.25rem!important}
+body.endpage #end .btn{min-height:58px;font-size:1.3rem;border-radius:20px}
+body.endpage #end .btn.alt{min-height:52px;font-size:1.15rem}
+body.endpage .lawn{padding-top:0}
+body.endpage .lawn svg{height:clamp(50px,13vw,90px)}
 </style>
 </head>
 <body>
@@ -211,6 +221,11 @@ svg .d{fill:#1f2a44}
   <input id="nameInp" class="plain" type="text" maxlength="20" autocomplete="off" placeholder="z. B. Lena">
   <p style="margin:22px 0 0;font-size:1.15rem">Buchstaben pro Silbe (Mehrfachauswahl)</p>
   <div class="seg"><button type="button" class="lenbtn" data-len="2">2</button><button type="button" class="lenbtn" data-len="3">3</button><button type="button" class="lenbtn" data-len="4">4</button></div>
+  <div id="balBox">
+    <p style="margin:22px 0 0;font-size:1.15rem">Verteilung der Silbenlängen: <b id="balVal">50 %</b></p>
+    <input type="range" id="bal" min="0" max="100" step="5" value="50" aria-label="Verteilung der Silbenlängen in Prozent">
+    <p class="hint" id="balHint"></p>
+  </div>
   <p style="margin:22px 0 0;font-size:1.15rem">Häufigkeit der hinteren Buchstaben: <b id="facVal">0 %</b></p>
   <input type="range" id="fac" min="0" max="100" step="5" value="0" aria-label="Häufigkeitsfaktor in Prozent">
   <p class="hint">0 % = alles zufällig. Je höher der Wert, desto häufiger kommen Silben mit Buchstaben vor, die weiter hinten eingegeben wurden. Bei 100 % steckt der letzte Buchstabe in jeder Silbe.</p>
@@ -336,15 +351,27 @@ function shuffle(arr){
 // Genau n Aufgaben. Jede gewählte Silbenlänge hat insgesamt gleiches Gewicht.
 // factor 0..100: je weiter hinten ein Buchstabe in der Eingabe steht, desto häufiger kommen Silben mit ihm vor.
 // 0 = rein zufällig, 100 = der letzte Buchstabe steckt in jeder Silbe.
-function makeRound(letters, lens, factor, n){
+// Gewichte je Silbenlänge. bal 0..100: 0 = nur die kürzeste Länge, 100 = nur die längste, 50 = alle gleich oft.
+function lenWeights(lens, bal){
+  var ls = lens.slice().sort(function(a, b){ return a - b; }), n = ls.length, t = Math.min(100, Math.max(0, bal == null ? 50 : bal)) / 100, w = {}, u, i;
+  ls.forEach(function(L, i){
+    var uni = 1 / n, ext = (t < 0.5) ? (i === 0 ? 1 : 0) : (i === n - 1 ? 1 : 0);
+    u = t < 0.5 ? (0.5 - t) * 2 : (t - 0.5) * 2;     // Abstand von der Mitte: 0 = gleich verteilt, 1 = nur ein Ende
+    w[L] = n === 1 ? 1 : (1 - u) * uni + u * ext;
+  });
+  return w;
+}
+function makeRound(letters, lens, factor, n, bal){
+  var lw = lenWeights(lens, bal);
   var items = [], f = Math.min(100, Math.max(0, factor)) / 100, k = letters.length, last = letters[k - 1];
   lens.forEach(function(L){
     var list = buildSyllables(letters, L);
     list.forEach(function(sy){
       var q = 0; sy.split("").forEach(function(c){ q = Math.max(q, k > 1 ? letters.indexOf(c) / (k - 1) : 1); });
-      items.push({ s: sy, has: sy.indexOf(last) >= 0, w: (1 / list.length) * ((1 - f) + f * Math.pow(q, 1 + 20 * f)) + 1e-9 });
+      items.push({ s: sy, lw: lw[L], has: sy.indexOf(last) >= 0, w: (lw[L] / list.length) * ((1 - f) + f * Math.pow(q, 1 + 20 * f)) + 1e-9 });
     });
   });
+  var act = items.filter(function(i){ return i.lw > 0; }); if (act.length >= 3) items = act;   // Länge mit Gewicht 0 entfällt ganz (wenn genug Silben bleiben)
   if (f >= 1){ var only = items.filter(function(i){ return i.has; }); if (only.length >= 3) items = only; }
   var out = [], cnt = {};
   for (var i = 0; i < n; i++){
@@ -536,6 +563,10 @@ function runTests(){
   ok("Faktor 100: letzter Buchstabe in jeder Silbe", r100.length === 20 && r100.every(function(x){ return x.indexOf("m") >= 0; }));
   var n0 = 0, n80 = 0; for (var t = 0; t < 80; t++){ makeRound(M, [3], 0, 20).forEach(function(x){ if (x.indexOf("m") >= 0) n0++; }); makeRound(M, [3], 80, 20).forEach(function(x){ if (x.indexOf("m") >= 0) n80++; }); }
   ok("Faktor 80 nutzt 'm' deutlich häufiger als Faktor 0", n80 > n0 * 1.15);
+  var wb = lenWeights([2,3], 50), w0 = lenWeights([2,3], 0), w1 = lenWeights([2,3], 100), w3 = lenWeights([3,4,2], 50), w30 = lenWeights([2,3,4], 0), w3e = lenWeights([2,3,4], 100);
+  ok("Längen-Verteilung: 50 % = gleich, 0 % = nur kurz, 100 % = nur lang", wb[2] === 0.5 && wb[3] === 0.5 && w0[2] === 1 && w0[3] === 0 && w1[2] === 0 && w1[3] === 1);
+  ok("Längen-Verteilung bei 3 Längen: 50 % gleich, 0 % nur 2, 100 % nur 4", Math.abs(w3[2] - 1/3) < 1e-9 && Math.abs(w3[4] - 1/3) < 1e-9 && w30[2] === 1 && w30[3] === 0 && w3e[4] === 1 && w3e[2] === 0);
+  ok("Runde bei 0 % nur 2er, bei 100 % nur 3er", makeRound(M, [2,3], 0, 20, 0).every(function(x){ return x.length === 2; }) && makeRound(M, [2,3], 0, 20, 100).every(function(x){ return x.length === 3; }));
   var lens = {}; makeRound(M, [2,3,4], 0, 20).forEach(function(x){ lens[x.length] = 1; }); 
   var seen = {}; for (var i = 0; i < 200; i++) seen[randomCase("eLO")] = 1;
   ok("Nur der Anfangsbuchstabe variiert (Elo/elo), Rest klein", Object.keys(seen).sort().join() === "Elo,elo");
@@ -578,7 +609,7 @@ function runTests(){
 (function(){
   var $ = function(id){ return document.getElementById(id); };
   var KEY = "silbenzauber.v1", canStore = true;
-  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, stats: { total: 0, combos: [] }, fixes: {} };
+  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, stats: { total: 0, combos: [] }, fixes: {} };
   // Speicher im Browser (localStorage), alles in try/catch: die App läuft auch ohne Speicher
   try {
     var raw = localStorage.getItem(KEY);
@@ -589,6 +620,7 @@ function runTests(){
       store.name = String(o.name || "").slice(0, 20);
       if (Array.isArray(o.lens)){ var l = o.lens.map(Number).filter(function(x){ return x >= 2 && x <= 4; }); if (l.length) store.lens = l.sort(); }
       var fa = Number(o.factor); if (fa >= 0 && fa <= 100) store.factor = fa;
+      var lb = Number(o.lenBal); if (o.lenBal != null && lb >= 0 && lb <= 100) store.lenBal = lb;
       store.stats = sanitizeStats(o.stats);
       store.fixes = sanitizeFixes(o.fixes);
     }
@@ -625,8 +657,9 @@ function runTests(){
   function show(id){
     clearTimeout(speakTimer); if (canSpeak) { try { speechSynthesis.cancel(); } catch (e) {} }
     ["setup","practice","end","settings","stats"].forEach(function(x){ $(x).classList.toggle("hidden", x !== id); });
-    $("topbar").classList.toggle("hidden", id === "practice");
-    $("headline").classList.toggle("hidden", id === "practice");
+    $("topbar").classList.toggle("hidden", id === "practice" || id === "end");
+    $("headline").classList.toggle("hidden", id === "practice" || id === "end");
+    document.body.classList.toggle("endpage", id === "end");
     $("gear").classList.toggle("hidden", id !== "setup");
     $("closeApp").classList.toggle("hidden", id !== "setup");
     $("statsBtn").classList.toggle("hidden", id !== "setup");
@@ -685,6 +718,14 @@ function runTests(){
     $("nameInp").value = store.name;
     Array.prototype.forEach.call(document.querySelectorAll(".lenbtn"), function(b){ b.setAttribute("aria-pressed", store.lens.indexOf(+b.getAttribute("data-len")) >= 0); });
     $("fac").value = store.factor; $("facVal").textContent = store.factor + " %";
+    renderBal();
+  }
+  function renderBal(){
+    var ls = store.lens.slice().sort(function(a, b){ return a - b; });
+    $("balBox").classList.toggle("hidden", ls.length < 2);
+    $("bal").value = store.lenBal; $("balVal").textContent = store.lenBal + " %";
+    var a = ls[0], z = ls[ls.length - 1];
+    $("balHint").textContent = "0 % = nur Silben mit " + a + " Buchstaben, 100 % = nur " + z + " Buchstaben, 50 % = alle gewählten Längen gleich oft (komplett zufällig)." + (ls.length > 2 ? " Dazwischen verschiebt sich die Mischung gleichmäßig." : "");
   }
   function delBtn(k){ return armed === k ? '<button type="button" class="del arm" data-k="' + k + '">Löschen?</button>' : '<button type="button" class="del" data-k="' + k + '" aria-label="Statistik zurücksetzen">×</button>'; }
   function renderStats(){
@@ -710,7 +751,7 @@ function runTests(){
   function startRound(){
     try {
       if (countSyllables(letters, store.lens, 3) < 3){ show("setup"); refresh(); return; }
-      round = makeRound(letters, store.lens, store.factor, 20); idx = 0; prevShown = "";
+      round = makeRound(letters, store.lens, store.factor, 20, store.lenBal); idx = 0; prevShown = "";
       show("practice"); showTask();
     } catch (e) { show("setup"); $("msg").textContent = "Etwas ist schiefgelaufen. Bitte noch einmal versuchen."; }
   }
@@ -772,6 +813,7 @@ function runTests(){
   });
   $("doneSet").addEventListener("click", function(){ show("setup"); refresh(); });
   $("nameInp").addEventListener("input", function(){ store.name = $("nameInp").value.trim().slice(0, 20); persist(); });
+  $("bal").addEventListener("input", function(){ store.lenBal = +$("bal").value; $("balVal").textContent = store.lenBal + " %"; persist(); });
   $("fac").addEventListener("input", function(){ store.factor = +$("fac").value; $("facVal").textContent = store.factor + " %"; persist(); });
   Array.prototype.forEach.call(document.querySelectorAll(".lenbtn"), function(b){
     b.addEventListener("click", function(){
