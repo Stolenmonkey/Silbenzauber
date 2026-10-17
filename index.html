@@ -158,6 +158,14 @@ body.endpage #end .btn{min-height:58px;font-size:1.3rem;border-radius:20px}
 body.endpage #end .btn.alt{min-height:52px;font-size:1.15rem}
 body.endpage .lawn{padding-top:0}
 body.endpage .lawn svg{height:clamp(50px,13vw,90px)}
+input[type=number]{width:100%;font:inherit;font-size:1.6rem;padding:12px 16px;margin-top:10px;border:3px solid #b9d3f2;border-radius:18px;color:#1f2a44;background:#fff}
+input[type=number]:focus{outline:none;border-color:#4a8fe0}
+body.endpage #end .bigmascot{width:80px;height:87px}
+body.endpage #end .btn{min-height:54px;font-size:1.25rem}
+body.endpage #end .btn.alt{min-height:48px;font-size:1.1rem}
+body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
+body.endpage #endAuto{font-size:.95rem!important;line-height:1.2}
+@media (max-height:720px){body.endpage .lawn{display:none}}
 </style>
 </head>
 <body>
@@ -226,6 +234,13 @@ body.endpage .lawn svg{height:clamp(50px,13vw,90px)}
     <input type="range" id="bal" min="0" max="100" step="5" value="50" aria-label="Verteilung der Silbenlängen in Prozent">
     <p class="hint" id="balHint"></p>
   </div>
+  <p style="margin:22px 0 0;font-size:1.15rem">Automatik (Schwierigkeit an die Zielzeit anpassen)</p>
+  <div class="seg"><button type="button" id="autoOff">Aus</button><button type="button" id="autoOn">An</button></div>
+  <p style="margin:18px 0 0;font-size:1.15rem">Zielzeit pro Runde (Sekunden)</p>
+  <input id="targetInp" type="number" inputmode="numeric" min="10" max="600" step="5" aria-label="Zielzeit in Sekunden">
+  <p style="margin:18px 0 0;font-size:1.15rem">Durchschnitt über die letzten Runden (1 bis 7)</p>
+  <input id="avgInp" type="number" inputmode="numeric" min="1" max="7" step="1" aria-label="Anzahl der Runden für den Durchschnitt">
+  <p class="hint">Nach jeder Runde wird der Durchschnitt der letzten Runden mit denselben Buchstaben mit der Zielzeit verglichen. Ist er langsamer, schiebt die Automatik den Regler „Verteilung der Silbenlängen“ Richtung kurze Silben (leichter), ist er schneller, Richtung lange Silben (schwerer). Wirkt nur, wenn mindestens zwei Silbenlängen gewählt sind.</p>
   <p style="margin:22px 0 0;font-size:1.15rem">Häufigkeit der hinteren Buchstaben: <b id="facVal">0 %</b></p>
   <input type="range" id="fac" min="0" max="100" step="5" value="0" aria-label="Häufigkeitsfaktor in Prozent">
   <p class="hint">0 % = alles zufällig. Je höher der Wert, desto häufiger kommen Silben mit Buchstaben vor, die weiter hinten eingegeben wurden. Bei 100 % steckt der letzte Buchstabe in jeder Silbe.</p>
@@ -262,6 +277,8 @@ body.endpage .lawn svg{height:clamp(50px,13vw,90px)}
   <h2 id="endTitle">Super, du hast alle 20 Silben gelesen!</h2>
   <p id="endSub" style="font-size:1.4rem;margin:0"></p>
   <p id="endTime" style="font-size:1.5rem;margin:0;color:#2f5f9a"></p>
+  <p id="endFb" style="font-size:1.2rem;margin:0"></p>
+  <p id="endAuto" style="font-size:1rem;margin:0;color:#4b5b7a"></p>
   <button class="btn" id="again" type="button"><span style="display:inline-flex;align-items:center;gap:12px"><svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.8-6.1" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M20.5 3.5v6h-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Neue Runde?</span></button>
   <button class="btn alt" id="change" type="button">Buchstaben ändern</button>
   <button class="btn alt" id="endStats" type="button">Statistik ansehen</button>
@@ -436,6 +453,29 @@ function formatTime(sec){
   return m + " Min. " + r + " Sek.";
 }
 
+// ---------- Automatik und Rückmeldung (reine Funktionen) ----------
+function avgLast(times, n){
+  var a = times.slice(-Math.max(1, n)); if (!a.length) return null;
+  return a.reduce(function(x, y){ return x + y; }, 0) / a.length;
+}
+// Neuer Wert für den Längen-Regler (0..100): langsamer als Ziel -> kürzere Silben (leichter), schneller -> längere (schwerer)
+function autoAdjust(bal, times, target, n){
+  var avg = avgLast(times, n); if (avg === null || !(target > 0)) return bal;
+  var rel = (target - avg) / target;                    // > 0: schneller als das Ziel
+  if (Math.abs(rel) < 0.05) return bal;                 // Toleranz ±5 %
+  var d = Math.round(Math.max(-15, Math.min(15, rel * 40)) / 5) * 5;
+  if (d === 0) d = rel > 0 ? 5 : -5;
+  return Math.max(0, Math.min(100, bal + d));
+}
+// Rückmeldung nach der Runde im Vergleich zur letzten Runde mit denselben Buchstaben
+function feedback(prev, cur){
+  if (prev === null || prev === undefined) return { kind: "first", text: "Das war deine erste Runde mit diesen Buchstaben. Prima gemacht, weiter so!" };
+  var d = Math.round((prev - cur) * 10) / 10;
+  if (d > 0) return { kind: "faster", text: "Du warst " + formatTime(d) + " schneller als in der letzten Runde. Glückwunsch, super gemacht!" };
+  if (d < 0) return { kind: "slower", text: "Du warst " + formatTime(-d) + " langsamer als in der letzten Runde. Nicht schlimm, versuch es gleich noch einmal. Du schaffst das!" };
+  return { kind: "same", text: "Genau so schnell wie in der letzten Runde. Stark!" };
+}
+
 // ---------- Gespeicherte Buchstaben-Sets (reine Funktionen) ----------
 function addSet(sets, letters){
   var key = letters.join(""); if (!key) return sets;
@@ -451,7 +491,7 @@ function recordRound(stats, letters, lens, seconds){
   st.total += 1;
   st.combos = st.combos.filter(function(x){ if (x.key === key){ c = x; return false; } return true; });
   if (!c) c = { key: key, letters: letters.slice().sort().join(""), lens: lens.slice().sort(), times: [], rounds: 0 };
-  c.times.push(seconds); c.times = c.times.slice(-10); c.rounds += 1;
+  c.times.push(seconds); c.times = c.times.slice(-7); c.rounds += 1;
   st.combos.unshift(c); st.combos = st.combos.slice(0, 40);
   return st;
 }
@@ -462,7 +502,7 @@ function sanitizeStats(o){
     st.total = Math.max(0, Math.floor(Number(o.total) || 0));
     (Array.isArray(o.combos) ? o.combos : []).forEach(function(c){
       if (!c || typeof c.key !== "string") return;
-      var times = (Array.isArray(c.times) ? c.times : []).map(Number).filter(function(x){ return isFinite(x) && x >= 0; }).slice(-10);
+      var times = (Array.isArray(c.times) ? c.times : []).map(Number).filter(function(x){ return isFinite(x) && x >= 0; }).slice(-7);
       var lens = (Array.isArray(c.lens) ? c.lens : []).map(Number).filter(function(x){ return x >= 2 && x <= 4; });
       var le = parseLetters(String(c.letters || "")).join("");
       if (!le || !lens.length) return;
@@ -472,9 +512,9 @@ function sanitizeStats(o){
   }
   return st;
 }
-// Liniendiagramm: Y = Sekunden. Rollierend: immer nur die letzten 10 Runden. Kommt Runde 11 dazu, fällt Runde 1 heraus.
+// Liniendiagramm: Y = Sekunden. Rollierend: immer nur die letzten 7 Runden. Kommt Runde 8 dazu, fällt Runde 1 heraus. Orange gestrichelte Linie = Durchschnitt.
 function chartSvg(times, rounds){
-  var shown = Math.min(10, times.length), arr = times.slice(-shown), start = rounds - shown + 1, N = 10;
+  var shown = Math.min(7, times.length), arr = times.slice(-shown), start = rounds - shown + 1, N = 7;
   var mx = Math.max.apply(null, arr.concat([1])), steps = [10,20,30,40,60,90,120,180,240,300,600,1200,1800,3600];
   var top = steps.filter(function(x){ return x >= mx * 1.05; })[0] || Math.ceil(mx * 1.05 / 600) * 600;
   var W = 320, H = 190, L = 46, R = 12, T = 16, B = 36, pw = W - L - R, ph = H - T - B, sw = pw / N, pts = [];
@@ -488,6 +528,7 @@ function chartSvg(times, rounds){
     if (i < shown) o += '<text x="' + x.toFixed(1) + '" y="' + (T + ph + 14) + '" text-anchor="middle" font-size="10" fill="#4b5b7a">' + (start + i) + '</text>';
   }
   arr.forEach(function(v, i){ pts.push([L + (i + 0.5) * sw, T + ph - ph * v / top, v]); });
+  if (arr.length){ var ya = T + ph - ph * avgLast(arr, arr.length) / top; o += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + ya.toFixed(1) + '" y2="' + ya.toFixed(1) + '" stroke="#f08a24" stroke-width="2" stroke-dasharray="6 4"/>'; }
   if (pts.length > 1) o += '<polyline fill="none" stroke="#2f7fd8" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="' + pts.map(function(q){ return q[0].toFixed(1) + "," + q[1].toFixed(1); }).join(" ") + '"/>';
   pts.forEach(function(q){
     o += '<circle class="pt" cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="4.5" fill="#2f7fd8" stroke="#fff" stroke-width="2"/>';
@@ -577,9 +618,13 @@ function runTests(){
   ok("Statistik: Bereinigung verwirft kaputte Daten", sanitizeStats({ total: "x", combos: [{ key: 5 }] }).combos.length === 0);
   ok("Diagramm: ein Punkt je Runde, Achse zeigt 1 bis 3", (chartSvg([5,8,12], 3).match(/class="pt"/g) || []).length === 3 && chartSvg([5,8,12], 3).indexOf(">3<") > 0);
   var big = function(n){ var a = []; for (var q = 0; q < n; q++) a.push(100); return a; }, c12 = chartSvg(big(12), 12);
-  ok("Diagramm: höchstens 10 Punkte, Achse rollt (Runde 12 -> 3 bis 12)", (c12.match(/class="pt"/g) || []).length === 10 && c12.indexOf(">12<") > 0 && c12.indexOf(">3<") > 0 && c12.indexOf(">2<") < 0);
+  ok("Diagramm: höchstens 7 Punkte, Achse rollt (Runde 12 -> 6 bis 12)", (c12.match(/class="pt"/g) || []).length === 7 && c12.indexOf(">12<") > 0 && c12.indexOf(">6<") > 0 && c12.indexOf(">5<") < 0);
   var roll = { total: 0, combos: [] }; for (var z = 1; z <= 12; z++) roll = recordRound(roll, ["a"], [2], z);
-  ok("Statistik: nur die letzten 10 Zeiten bleiben (Runde 11 streicht Runde 1)", roll.combos[0].times.length === 10 && roll.combos[0].times[0] === 3 && roll.combos[0].rounds === 12);
+  ok("Statistik: nur die letzten 7 Zeiten bleiben (Runde 8 streicht Runde 1)", roll.combos[0].times.length === 7 && roll.combos[0].times[0] === 6 && roll.combos[0].rounds === 12);
+  ok("Durchschnitt der letzten n Zeiten", avgLast([10, 20, 30, 40], 3) === 30 && avgLast([10, 20], 7) === 15 && avgLast([], 3) === null);
+  ok("Automatik: langsamer -> leichter, schneller -> schwerer, im Ziel -> gleich", autoAdjust(50, [80, 80, 80], 60, 3) < 50 && autoAdjust(50, [40, 40, 40], 60, 3) > 50 && autoAdjust(50, [60, 61, 59], 60, 3) === 50);
+  ok("Automatik: nur die letzten n Runden zählen, Grenzen 0 und 100", autoAdjust(50, [200, 200, 40, 40, 40], 60, 3) === 65 && autoAdjust(0, [100], 60, 3) === 0 && autoAdjust(100, [10], 60, 3) === 100);
+  ok("Rückmeldung: schneller / langsamer / gleich / erste Runde", feedback(50, 45.8).kind === "faster" && feedback(50, 45.8).text.indexOf("4,2 Sekunden") > 0 && feedback(40, 43).kind === "slower" && feedback(40, 40).kind === "same" && feedback(null, 40).kind === "first");
   var abc = "abcdefghijklmnopqrstuvwxyz"; 
   ok("alle 52 Buchstaben sind eigene SVG-Glyphen", (abc + abc.toUpperCase()).split("").every(function(c){ return renderWord(c).indexOf("<svg") === 0; }));
   ok("Silbe 'Elo' besteht aus 3 SVG-Glyphen", (renderWord("Elo").match(/<svg/g) || []).length === 3);
@@ -609,7 +654,7 @@ function runTests(){
 (function(){
   var $ = function(id){ return document.getElementById(id); };
   var KEY = "silbenzauber.v1", canStore = true;
-  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, stats: { total: 0, combos: [] }, fixes: {} };
+  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, fixes: {} };
   // Speicher im Browser (localStorage), alles in try/catch: die App läuft auch ohne Speicher
   try {
     var raw = localStorage.getItem(KEY);
@@ -621,6 +666,9 @@ function runTests(){
       if (Array.isArray(o.lens)){ var l = o.lens.map(Number).filter(function(x){ return x >= 2 && x <= 4; }); if (l.length) store.lens = l.sort(); }
       var fa = Number(o.factor); if (fa >= 0 && fa <= 100) store.factor = fa;
       var lb = Number(o.lenBal); if (o.lenBal != null && lb >= 0 && lb <= 100) store.lenBal = lb;
+      store.auto = o.auto === true;
+      var tg = Math.round(Number(o.target)); if (tg >= 10 && tg <= 600) store.target = tg;
+      var an = Math.round(Number(o.avgN)); if (an >= 1 && an <= 7) store.avgN = an;
       store.stats = sanitizeStats(o.stats);
       store.fixes = sanitizeFixes(o.fixes);
     }
@@ -718,21 +766,25 @@ function runTests(){
     $("nameInp").value = store.name;
     Array.prototype.forEach.call(document.querySelectorAll(".lenbtn"), function(b){ b.setAttribute("aria-pressed", store.lens.indexOf(+b.getAttribute("data-len")) >= 0); });
     $("fac").value = store.factor; $("facVal").textContent = store.factor + " %";
-    renderBal();
+    renderBal(); renderAuto();
+  }
+  function renderAuto(){
+    $("autoOn").setAttribute("aria-pressed", store.auto); $("autoOff").setAttribute("aria-pressed", !store.auto);
+    $("targetInp").value = store.target; $("avgInp").value = store.avgN;
   }
   function renderBal(){
     var ls = store.lens.slice().sort(function(a, b){ return a - b; });
     $("balBox").classList.toggle("hidden", ls.length < 2);
     $("bal").value = store.lenBal; $("balVal").textContent = store.lenBal + " %";
     var a = ls[0], z = ls[ls.length - 1];
-    $("balHint").textContent = "0 % = nur Silben mit " + a + " Buchstaben, 100 % = nur " + z + " Buchstaben, 50 % = alle gewählten Längen gleich oft (komplett zufällig)." + (ls.length > 2 ? " Dazwischen verschiebt sich die Mischung gleichmäßig." : "");
+    $("balHint").textContent = "0 % = nur Silben mit " + a + " Buchstaben, 100 % = nur " + z + " Buchstaben, 50 % = alle gewählten Längen gleich oft (komplett zufällig)." + (ls.length > 2 ? " Dazwischen verschiebt sich die Mischung gleichmäßig." : "") + (store.auto ? " Die Automatik verstellt diesen Regler nach jeder Runde." : "");
   }
   function delBtn(k){ return armed === k ? '<button type="button" class="del arm" data-k="' + k + '">Löschen?</button>' : '<button type="button" class="del" data-k="' + k + '" aria-label="Statistik zurücksetzen">×</button>'; }
   function renderStats(){
     var st = store.stats, h = '<div class="card"><div class="srow"><div><div class="num">' + st.total + '</div>Beendete Runden insgesamt</div>' + delBtn("total") + '</div></div>';
     if (!st.combos.length) h += '<div class="card">Noch keine Statistik. Sobald eine Runde komplett beendet wurde, erscheint sie hier.</div>';
     st.combos.forEach(function(c){
-      h += '<div class="card"><div class="srow"><div><div class="ct">' + disp(c.letters) + '</div>Silben mit ' + c.lens.join(", ") + ' Buchstaben<br>Gespielte Runden: <b>' + c.rounds + '</b><br>Diagramm: letzte 10 Runden</div>' + delBtn(c.key) + '</div>' + chartSvg(c.times, c.rounds) + '</div>';
+      h += '<div class="card"><div class="srow"><div><div class="ct">' + disp(c.letters) + '</div>Silben mit ' + c.lens.join(", ") + ' Buchstaben<br>Gespielte Runden: <b>' + c.rounds + '</b><br>Durchschnitt der letzten ' + c.times.length + ' Runden: <b>' + (c.times.length ? formatTime(Math.round(avgLast(c.times, 7) * 10) / 10) : "–") + '</b> (orange Linie)</div>' + delBtn(c.key) + '</div>' + chartSvg(c.times, c.rounds) + '</div>';
     });
     $("statsList").innerHTML = h;
   }
@@ -757,10 +809,18 @@ function runTests(){
   }
   function showEnd(){
     var nm = store.name, secs = Math.round((Date.now() - roundStart) / 100) / 10;
-    store.stats = recordRound(store.stats, letters, store.lens, secs); persist();   // nur komplett beendete Runden zählen
+    var key = comboKey(letters, store.lens), old = store.stats.combos.filter(function(c){ return c.key === key; })[0];
+    var prevT = old && old.times.length ? old.times[old.times.length - 1] : null, fb = feedback(prevT, secs), note = "";
+    store.stats = recordRound(store.stats, letters, store.lens, secs);   // nur komplett beendete Runden zählen
+    if (store.auto && store.lens.length > 1){
+      var nb = autoAdjust(store.lenBal, store.stats.combos[0].times, store.target, store.avgN);
+      if (nb !== store.lenBal){ note = nb > store.lenBal ? "Automatik: Die nächste Runde wird etwas schwieriger." : "Automatik: Die nächste Runde wird etwas leichter."; store.lenBal = nb; }
+    }
+    persist();
     $("endTitle").textContent = nm ? "Herzlichen Glückwunsch, " + nm + "!" : "Super, du hast alle 20 Silben gelesen!";
     $("endSub").textContent = nm ? "Du hast alle 20 Silben gelesen!" : "";
     $("endTime").textContent = "Deine Zeit: " + formatTime(secs);
+    $("endFb").textContent = fb.text; $("endFb").style.color = fb.kind === "slower" ? "#2f5f9a" : "#23864a"; $("endAuto").textContent = note;
     show("end");
   }
   function next(){
@@ -813,6 +873,11 @@ function runTests(){
   });
   $("doneSet").addEventListener("click", function(){ show("setup"); refresh(); });
   $("nameInp").addEventListener("input", function(){ store.name = $("nameInp").value.trim().slice(0, 20); persist(); });
+  $("autoOn").addEventListener("click", function(){ store.auto = true; persist(); renderAuto(); renderBal(); });
+  $("autoOff").addEventListener("click", function(){ store.auto = false; persist(); renderAuto(); renderBal(); });
+  $("targetInp").addEventListener("input", function(){ var v = Math.round(+$("targetInp").value); if (v >= 10 && v <= 600){ store.target = v; persist(); } });
+  $("avgInp").addEventListener("input", function(){ var v = Math.round(+$("avgInp").value); if (v >= 1 && v <= 7){ store.avgN = v; persist(); } });
+  $("targetInp").addEventListener("change", renderAuto); $("avgInp").addEventListener("change", renderAuto);
   $("bal").addEventListener("input", function(){ store.lenBal = +$("bal").value; $("balVal").textContent = store.lenBal + " %"; persist(); });
   $("fac").addEventListener("input", function(){ store.factor = +$("fac").value; $("facVal").textContent = store.factor + " %"; persist(); });
   Array.prototype.forEach.call(document.querySelectorAll(".lenbtn"), function(b){
