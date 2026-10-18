@@ -180,6 +180,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 #pv .big{font-size:calc(clamp(3.4rem,18vw,9rem)*.55)}
 .sylwrap .ghost{position:absolute;left:50%;top:0;transform:translateX(-50%);pointer-events:none}
 #endChart{width:100%}#endChart .chart{margin-top:4px;max-height:34vh}
+.stage.pvon .sylwrap{transform:translateX(calc(-1 * min(14vw,90px)))}
 </style>
 </head>
 <body>
@@ -876,6 +877,7 @@ function runTests(){
     var h = "";
     if (store.preview) for (var j = idx + 1; j <= Math.min(19, idx + 3); j++) h += '<div class="big">' + renderWord(cased[j]) + '</div>';
     $("pv").innerHTML = h;
+    $("syl").closest(".stage").classList.toggle("pvon", !!store.preview);   // Vorschau an: Silbengruppe nach links schieben
   }
   function snap(){
     var s = $("syl");
@@ -942,10 +944,11 @@ function runTests(){
     var el = $("syl"), st = el.closest(".stage"), kids = $("spark").children, R = Math.random, k;
     var rx = Math.min(el.offsetWidth / 2 * .9 + 6, st.clientWidth / 2 - 24), ry = Math.min(el.offsetHeight / 2 * .8 + 4, st.clientHeight / 2 - 24);
     var mw = st.clientWidth / 2 - 8, mh = st.clientHeight / 2 - 6, cl = function(v, m){ return Math.max(-m, Math.min(m, v)); };
+    var sr = el.getBoundingClientRect(), tr = st.getBoundingClientRect(), cx = (sr.left + sr.width / 2) - (tr.left + tr.width / 2);   // Versatz der Hauptsilbe zur Kartenmitte
     for (k = 0; k < kids.length; k++){
       var a = R() * 2 * Math.PI, a2 = a + (R() - .5) * 1.8, f = .5 + R() * .5, far = 30 + R() * 90;
       var sx = Math.cos(a) * rx * f, sy = Math.sin(a) * ry * f;
-      var ex = cl(Math.cos(a2) * (rx + far), mw), ey = cl(Math.sin(a2) * (ry + far * .8), mh);
+      var ex = Math.max(-mw - cx, Math.min(mw - cx, Math.cos(a2) * (rx + far))), ey = cl(Math.sin(a2) * (ry + far * .8), mh);
       var S = kids[k].style;
       S.setProperty("--sx", sx.toFixed(0) + "px"); S.setProperty("--sy", sy.toFixed(0) + "px");
       S.setProperty("--mx", ((sx + ex) / 2 + (R() - .5) * 60).toFixed(0) + "px"); S.setProperty("--my", ((sy + ey) / 2 + (R() - .5) * 60).toFixed(0) + "px");
