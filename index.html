@@ -176,6 +176,10 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 .atab{width:100%;border-collapse:collapse;font-size:1rem;margin-top:8px}
 .atab th,.atab td{padding:6px 4px;text-align:left;border-bottom:1px solid #d6e3f3}
 .ct2{letter-spacing:.1em;font-size:1.2rem}
+.sylwrap #pv{position:absolute;left:100%;top:0;height:100%;display:flex;align-items:center;gap:.9em;padding-left:1.2em;pointer-events:none;opacity:.32;filter:grayscale(1)}
+#pv .big{font-size:calc(clamp(3.4rem,18vw,9rem)*.55)}
+.sylwrap .ghost{position:absolute;left:50%;top:0;transform:translateX(-50%);pointer-events:none}
+#endChart{width:100%}#endChart .chart{margin-top:4px;max-height:34vh}
 </style>
 </head>
 <body>
@@ -225,7 +229,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 <g class="star"><path d="M60 -2 l4 9 10 1 -8 7 3 10 -9 -6 -9 6 3 -10 -8 -7 10 -1z" fill="#ffd93d" transform="translate(0 6)"/></g>
 <circle cx="50" cy="40" r="3" fill="#ffd93d"/><circle cx="68" cy="30" r="2.5" fill="#ffd93d"/><circle cx="72" cy="46" r="2.5" fill="#fff"/>
 </svg></div>
-  <div class="card stage"><div class="sylwrap"><div class="big" id="syl" role="img"></div>
+  <div class="card stage"><div class="sylwrap"><div class="big" id="syl" role="img"></div><div id="pv" aria-hidden="true"></div>
     <div class="spark" id="spark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
     <button type="button" class="iconbtn speak" id="speak" aria-label="Silbe vorlesen" style="visibility:hidden"><svg viewBox="0 0 24 24" width="38" height="38" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
   <button class="btn" id="next" type="button">Weiter</button>
@@ -261,6 +265,8 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
     <p style="margin:22px 0 0;font-size:1.15rem">Schwierigkeit der Silben (nach Zeit): <b id="synVal">50 %</b></p>
     <input type="range" id="syn" min="0" max="100" step="5" value="50" aria-label="Schwierigkeit der Silben in Prozent">
     <p class="hint">0 % = nur Silben, die dem Kind leichtfallen (kurze Zeit bis „Weiter“), 100 % = nur Silben, die länger dauern, 50 % = keine Auswahl. Grundlage sind die letzten 10 Zeiten je Silbe; Silben ohne Zeit zählen als mittel.</p>
+    <p style="margin:22px 0 0;font-size:1.15rem">Silben-Vorschau (nächste Silben rechts, grau)</p>
+    <div class="seg"><button type="button" id="prevOff">Aus</button><button type="button" id="prevOn">An</button></div>
     <p style="margin:22px 0 0;font-size:1.15rem">Häufigkeit der hinteren Buchstaben: <b id="facVal">0 %</b></p>
     <input type="range" id="fac" min="0" max="100" step="5" value="0" aria-label="Häufigkeitsfaktor in Prozent">
     <p class="hint">0 % = alles zufällig. Je höher der Wert, desto häufiger kommen Silben mit Buchstaben vor, die weiter hinten eingegeben wurden. Bei 100 % steckt der letzte Buchstabe in jeder Silbe.</p>
@@ -299,6 +305,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
   <h2 id="endTitle">Geschafft!</h2>
   <p id="endTime" style="font-size:1.5rem;margin:0;color:#2f5f9a"></p>
   <p id="endFb" style="font-size:1.2rem;margin:0"></p>
+  <div id="endChart"></div>
   </section>
 <div id="endBtns" class="endbtns hidden">
   <button class="btn" id="again" type="button"><span class="bi"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.8-6.1" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M20.5 3.5v6h-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Noch mal?</span></button>
@@ -717,7 +724,7 @@ function runTests(){
 (function(){
   var $ = function(id){ return document.getElementById(id); };
   var KEY = "silbenzauber.v1", canStore = true;
-  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, fixes: {}, syl: {}, synBal: 50 };
+  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, fixes: {}, syl: {}, synBal: 50, preview: false };
   // Speicher im Browser (localStorage), alles in try/catch: die App läuft auch ohne Speicher
   try {
     var raw = localStorage.getItem(KEY);
@@ -733,13 +740,13 @@ function runTests(){
       var tg = Math.round(Number(o.target)); if (tg >= 10 && tg <= 600) store.target = tg;
       var an = Math.round(Number(o.avgN)); if (an >= 1 && an <= 7) store.avgN = an;
       store.stats = sanitizeStats(o.stats);
-      store.fixes = sanitizeFixes(o.fixes); store.syl = sanitizeSyl(o.syl); var sb = Number(o.synBal); if (o.synBal != null && sb >= 0 && sb <= 100) store.synBal = sb;
+      store.fixes = sanitizeFixes(o.fixes); store.syl = sanitizeSyl(o.syl); var sb = Number(o.synBal); if (o.synBal != null && sb >= 0 && sb <= 100) store.synBal = sb; store.preview = o.preview === true;
     }
   } catch (e) { canStore = false; }
   function persist(){ try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { canStore = false; } }
   var disp = function(k){ return k.split("").map(function(c){ return c.toUpperCase(); }).join(" "); };
 
-  var letters = [], round = [], idx = 0, locked = false, prevShown = "", roundStart = 0, armed = "", armTimer = null, speakTimer = null, currentSyl = "", curBal = 50, curSd = 50, sylStart = 0;
+  var letters = [], round = [], idx = 0, locked = false, prevShown = "", roundStart = 0, armed = "", armTimer = null, speakTimer = null, currentSyl = "", cased = [], curBal = 50, curSd = 50, sylStart = 0;
   var canSpeak = ("speechSynthesis" in window) && ("SpeechSynthesisUtterance" in window);
 
   // Vorlesen mit der Sprachausgabe des Geräts (deutsch, langsam)
@@ -830,8 +837,9 @@ function runTests(){
     $("nameInp").value = store.name;
     Array.prototype.forEach.call(document.querySelectorAll(".lenbtn"), function(b){ b.setAttribute("aria-pressed", store.lens.indexOf(+b.getAttribute("data-len")) >= 0); });
     $("fac").value = store.factor; $("facVal").textContent = store.factor + " %"; $("syn").value = store.synBal; $("synVal").textContent = store.synBal + " %";
-    renderBal(); renderAuto();
+    renderBal(); renderAuto(); renderPrev();
   }
+  function renderPrev(){ $("prevOn").setAttribute("aria-pressed", store.preview); $("prevOff").setAttribute("aria-pressed", !store.preview); }
   function renderAutoTable(){
     var cs = store.stats.combos, f = function(v){ return typeof v === "number" ? v + " %" : "–"; };
     $("autoTab").innerHTML = cs.length ? '<table class="atab"><thead><tr><th>Buchstaben</th><th>Längen</th><th>Länge</th><th>Silben</th></tr></thead><tbody>' + cs.map(function(c){
@@ -863,13 +871,39 @@ function runTests(){
       '</details></div>' + delBtn("syl") + '</div></div>';
     $("statsList").innerHTML = h;
   }
+  // Silben-Vorschau: die nächsten Silben stehen klein und grau rechts und rücken beim Weiter nach links
+  function renderPreview(){
+    var h = "";
+    if (store.preview) for (var j = idx + 1; j <= Math.min(19, idx + 3); j++) h += '<div class="big">' + renderWord(cased[j]) + '</div>';
+    $("pv").innerHTML = h;
+  }
+  function snap(){
+    var s = $("syl");
+    return { html: s.innerHTML, w: s.offsetWidth, pv: Array.prototype.map.call($("pv").children, function(c){ return c.getBoundingClientRect(); }) };
+  }
+  function flip(o){
+    if (!el0().animate) return;
+    var el = $("syl"), nr = el.getBoundingClientRect(), wrap = el.parentNode, st = el.closest(".stage"), D = 380;
+    var g = document.createElement("div"); g.className = "big ghost"; g.innerHTML = o.html; wrap.appendChild(g);   // alte Silbe wischt nach links weg
+    g.animate([{ transform: "translateX(-50%)", opacity: 1 }, { transform: "translateX(calc(-50% - " + Math.round(st.clientWidth / 2 + o.w / 2 + 20) + "px))", opacity: 0 }], { duration: D, easing: "ease-in" }).onfinish = function(){ g.remove(); };
+    if (o.pv[0]){   // erste Vorschau-Silbe wächst zur Hauptsilbe
+      var dx = (o.pv[0].left + o.pv[0].width / 2) - (nr.left + nr.width / 2);
+      el.animate([{ transform: "translateX(" + dx + "px) scale(.55)", opacity: .35 }, { transform: "none", opacity: 1 }], { duration: D, easing: "ease-out" });
+    }
+    Array.prototype.forEach.call($("pv").children, function(c, i){   // übrige Vorschau-Silben rücken nach links, neue kommt von rechts
+      var old = o.pv[i + 1], from = old ? "translateX(" + (old.left - c.getBoundingClientRect().left) + "px)" : "translateX(90px)";
+      c.animate([{ transform: from, opacity: old ? 1 : 0 }, { transform: "none", opacity: 1 }], { duration: D, easing: "ease-out" });
+    });
+  }
+  function el0(){ return $("syl"); }
   function showTask(){
     $("prog").textContent = "Aufgabe " + (idx + 1) + " von 20";
-    var sy = round[idx], r = randomCase(sy, prevShown);
+    var sy = round[idx], r = cased[idx] || randomCase(sy), fl = (store.preview && idx > 0) ? snap() : null;
     prevShown = r;
     if (idx === 0) roundStart = Date.now();
     sylStart = Date.now();   // Zeitmessung ab der ersten Silbe
-    $("syl").innerHTML = renderWord(r); restart($("syl"), "pop", 420);
+    $("syl").innerHTML = renderWord(r); renderPreview();
+    if (fl) flip(fl); else restart($("syl"), "pop", 420);
     $("syl").setAttribute("aria-label", r);
     locked = true; setTimeout(function(){ locked = false; }, 400);   // Schutz vor Doppeltippen
     // Nach 5 Sekunden ohne „Weiter“ erscheint der Lautsprecher-Button unter der Silbe
@@ -883,6 +917,7 @@ function runTests(){
       if (store.auto){ curBal = startVal(store.stats, letters, store.lens, "bal", store.lenBal); curSd = startVal(store.stats, letters, store.lens, "sd", store.synBal); }
       var sa = {}; Object.keys(store.syl).forEach(function(k){ sa[k] = avgLast(store.syl[k], 10); });
       round = makeRound(letters, store.lens, store.factor, 20, curBal, sa, curSd); idx = 0; prevShown = "";
+      cased = round.map(function(x){ return randomCase(x); });   // Schreibweise vorab festlegen, damit die Vorschau stimmt
       show("practice"); showTask();
     } catch (e) { show("setup"); $("msg").textContent = "Etwas ist schiefgelaufen. Bitte noch einmal versuchen."; }
   }
@@ -897,7 +932,9 @@ function runTests(){
     }
     persist();
     $("endTitle").textContent = nm ? "Herzlichen Glückwunsch, " + nm + "!" : "Geschafft!";
-    $("endTime").innerHTML = '<span style="display:block;font-size:1.1rem;font-weight:500;color:#4b5b7a">Deine Zeit</span>' + formatTime(secs);
+    var c1 = store.stats.combos[0];
+    $("endChart").innerHTML = chartSvg(c1.times, c1.rounds);   // Diagramm der aktuellen Buchstabenkombination
+    $("endTime").innerHTML = '<span style="display:block;font-size:1.1rem;font-weight:500;color:#4b5b7a">Deine Zeit</span>' + (secs === 1 ? "1 Sekunde" : String(secs).replace(".", ",") + " Sekunden");
     $("endFb").textContent = fb.text; $("endFb").style.color = fb.kind === "slower" ? "#2f5f9a" : "#23864a";
     show("end");
   }
@@ -974,6 +1011,8 @@ function runTests(){
   });
   $("doneSet").addEventListener("click", function(){ show("setup"); refresh(); });
   $("nameInp").addEventListener("input", function(){ store.name = $("nameInp").value.trim().slice(0, 20); persist(); });
+  $("prevOn").addEventListener("click", function(){ store.preview = true; persist(); renderPrev(); });
+  $("prevOff").addEventListener("click", function(){ store.preview = false; persist(); renderPrev(); });
   $("autoOn").addEventListener("click", function(){ store.auto = true; persist(); renderAuto(); renderBal(); });
   $("autoOff").addEventListener("click", function(){ store.auto = false; persist(); renderAuto(); renderBal(); });
   $("targetInp").addEventListener("input", function(){ var v = Math.round(+$("targetInp").value); if (v >= 10 && v <= 600){ store.target = v; persist(); } });
