@@ -184,6 +184,13 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 @keyframes flyBack{0%{transform:translate(255px,10px)}25%{transform:translate(160px,-14px)}50%{transform:translate(20px,8px)}75%{transform:translate(-70px,-10px)}100%{transform:translate(-125px,6px)}}
 .lawn.dyn .fly2{animation:flyBack 23s linear infinite}
 .dlg{position:fixed;inset:0;background:rgba(31,42,68,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}.dlg .card{max-width:420px;width:100%}
+.set .pen{background:#f1f7ff;color:#2f5f9a;padding:0 12px;display:flex;align-items:center;justify-content:center;border-left:2px solid #d6e3f3}
+.sylrow{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #d6e3f3}
+.sylrow .w{font-size:1.7rem;letter-spacing:.12em;flex:1}.sylrow .t{color:#4b5b7a;font-size:1rem}
+.sylrow.off .w{text-decoration:line-through;color:#9aa8c0}
+.sylrow button{font:inherit;font-size:1.05rem;min-height:48px;min-width:108px;border-radius:16px;border:3px solid #b9d3f2;background:#fff;color:#1f2a44;cursor:pointer}
+.sylrow.off button{background:#e8505b;border-color:#e8505b;color:#fff}
+.lenh{margin:16px 0 4px;font-size:1.1rem;color:#4b5b7a}
 </style>
 </head>
 <body>
@@ -305,6 +312,15 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
   <button class="btn" id="doneStats" type="button" style="margin-top:20px">Fertig</button>
 </section>
 
+<!-- SEITE: Silben einer Buchstabenkombination -->
+<section id="syls" class="card hidden">
+  <h2 id="sylsTitle" style="margin:0 0 4px;font-size:1.7rem">Silben</h2>
+  <p class="hint" id="sylsInfo"></p>
+  <button class="btn alt small" id="sylsClear" type="button">Alle freigeben</button>
+  <div id="sylsList"></div>
+  <button class="btn" id="doneSyls" type="button" style="margin-top:18px">Fertig</button>
+</section>
+
 <section id="end" class="card hidden">
   <svg class="bigmascot owl" viewBox="0 0 120 130" aria-hidden="true">
 <g class="wingL"><ellipse cx="30" cy="92" rx="11" ry="20" fill="#f08a24" transform="rotate(18 30 92)"/></g><g class="wingR"><ellipse cx="90" cy="92" rx="11" ry="20" fill="#f08a24" transform="rotate(-18 90 92)"/></g>
@@ -422,7 +438,7 @@ function lenWeights(lens, bal){
   });
   return w;
 }
-function makeRound(letters, lens, factor, n, bal, sylAvg, sbal){
+function makeRound(letters, lens, factor, n, bal, sylAvg, sbal, blocked){
   var lw = lenWeights(lens, bal);
   var items = [], f = Math.min(100, Math.max(0, factor)) / 100, k = letters.length, last = letters[k - 1];
   lens.forEach(function(L){
@@ -432,6 +448,7 @@ function makeRound(letters, lens, factor, n, bal, sylAvg, sbal){
       items.push({ s: sy, lw: lw[L], has: sy.indexOf(last) >= 0, w: (lw[L] / list.length) * ((1 - f) + f * Math.pow(q, 1 + 20 * f)) + 1e-9 });
     });
   });
+  if (blocked && blocked.length){ var okI = items.filter(function(it){ return blocked.indexOf(it.s) < 0; }); if (okI.length >= 3) items = okI; }   // gesperrte Silben entfallen (wenn genug übrig bleiben)
   if (sylAvg && sbal != null && sbal !== 50){   // Silben-Schwierigkeit nach gemessener Zeit: 0 = leichte (schnelle), 100 = schwere (langsame)
     var known = items.filter(function(it){ return sylAvg[it.s] != null; }).sort(function(x, y){ return sylAvg[x.s] - sylAvg[y.s]; }), rk = {};
     known.forEach(function(it, q){ rk[it.s] = known.length > 1 ? q / (known.length - 1) : 0.5; });
@@ -549,8 +566,8 @@ function recordRound(stats, letters, lens, seconds){
   var st = JSON.parse(JSON.stringify(stats)), key = comboKey(letters, lens), c = null;
   st.total += 1;
   st.combos = st.combos.filter(function(x){ if (x.key === key){ c = x; return false; } return true; });
-  if (!c) c = { key: key, letters: letters.slice().sort().join(""), lens: lens.slice().sort(), times: [], rounds: 0 };
-  c.times.push(seconds); c.times = c.times.slice(-7); c.rounds += 1;
+  if (!c) c = { key: key, letters: letters.slice().sort().join(""), order: letters.join(""), lens: lens.slice().sort(), times: [], rounds: 0 };
+  c.times.push(seconds); c.times = c.times.slice(-7); c.rounds += 1; c.order = letters.join("");
   st.combos.unshift(c); st.combos = st.combos.slice(0, 40);
   return st;
 }
@@ -577,6 +594,17 @@ function sanitizeSyl(o){
   });
   return out;
 }
+// Gesperrte Silben je Buchstabenkombination (Schlüssel = sortierte Buchstaben) prüfen und bereinigen
+function sanitizeBlocked(o){
+  var out = {}, n = 0;
+  if (o && typeof o === "object") Object.keys(o).forEach(function(k){
+    var key = parseLetters(k).join(""), arr = Array.isArray(o[k]) ? o[k] : [], seen = {}, list = [];
+    if (!key || key !== k || key !== key.split("").sort().join("") || n >= 40) return;
+    arr.forEach(function(x){ var q = String(x).toLowerCase(); if (/^[a-z]{2,4}$/.test(q) && !seen[q] && list.length < 600){ seen[q] = 1; list.push(q); } });
+    if (list.length){ out[key] = list; n++; }
+  });
+  return out;
+}
 // Gespeicherte Statistik prüfen und bereinigen
 function sanitizeStats(o){
   var st = { total: 0, combos: [] };
@@ -588,7 +616,8 @@ function sanitizeStats(o){
       var lens = (Array.isArray(c.lens) ? c.lens : []).map(Number).filter(function(x){ return x >= 2 && x <= 4; });
       var le = parseLetters(String(c.letters || "")).join("");
       if (!le || !lens.length) return;
-      st.combos.push({ key: c.key, letters: le, lens: lens, times: times, rounds: Math.max(times.length, Math.floor(Number(c.rounds) || 0)), bal: pv(c.bal), sd: pv(c.sd) });
+      var od = parseLetters(String(c.order || "")).join(""); if (od.split("").sort().join("") !== le.split("").sort().join("")) od = le;
+      st.combos.push({ key: c.key, letters: le, order: od, lens: lens, times: times, rounds: Math.max(times.length, Math.floor(Number(c.rounds) || 0)), bal: pv(c.bal), sd: pv(c.sd) });
     });
     st.combos = st.combos.slice(0, 40);
   }
@@ -610,10 +639,9 @@ function chartSvg(times, rounds){
     if (i < shown) o += '<text x="' + x.toFixed(1) + '" y="' + (T + ph + 14) + '" text-anchor="middle" font-size="10" fill="#4b5b7a">' + (start + i) + '</text>';
   }
   arr.forEach(function(v, i){ pts.push([L + (i + 0.5) * sw, T + ph - ph * v / top, v]); });
-  if (pts.length > 1) o += '<polyline fill="none" stroke="#2f7fd8" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="' + pts.map(function(q){ return q[0].toFixed(1) + "," + q[1].toFixed(1); }).join(" ") + '"/>';
   pts.forEach(function(q){
-    o += '<circle class="pt" cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="4.5" fill="#2f7fd8" stroke="#fff" stroke-width="2"/>';
-    o += '<text x="' + q[0].toFixed(1) + '" y="' + (q[1] - 9).toFixed(1) + '" text-anchor="middle" font-size="9" fill="#1f2a44">' + Math.round(q[2]) + '</text>';
+    o += '<rect class="pt" x="' + (q[0] - sw * 0.31).toFixed(1) + '" y="' + q[1].toFixed(1) + '" width="' + (sw * 0.62).toFixed(1) + '" height="' + Math.max(1, T + ph - q[1]).toFixed(1) + '" rx="4" fill="#2f7fd8"/>';
+    o += '<text x="' + q[0].toFixed(1) + '" y="' + (q[1] - 4).toFixed(1) + '" text-anchor="middle" font-size="9" fill="#1f2a44">' + Math.round(q[2]) + '</text>';
   });
   o += '<text x="' + (L + pw / 2) + '" y="' + (H - 3) + '" text-anchor="middle" font-size="11" fill="#4b5b7a">Runde</text>';
   o += '<text transform="translate(11 ' + (T + ph / 2) + ') rotate(-90)" text-anchor="middle" font-size="11" fill="#4b5b7a">Sekunden</text></svg>';
@@ -733,6 +761,7 @@ function runTests(){
   var mt = function(sb){ var tt = 0, cc = 0; for (var q = 0; q < 20; q++) makeRound(M, [2,3], 0, 20, 50, av, sb).forEach(function(x){ tt += av[x]; cc++; }); return tt / cc; };
   ok("Silben-Schwierigkeit: 100 % wählt langsamere Silben als 0 %", mt(100) > mt(0) + 3);
   ok("Automatik-Weg: Silben = doppelte Länge, höchstens 100 %", sdFromLen(20) === 40 && sdFromLen(50) === 100 && sdFromLen(80) === 100 && sdFromLen(45) === 90);
+  ok("Sperren: gesperrte Silben kommen nicht vor, Bereinigung", makeRound(M, [2,3], 0, 20, 50, null, 50, ["ol","lo"]).every(function(x){ return x !== "ol" && x !== "lo"; }) && JSON.stringify(sanitizeBlocked({ elo: ["Ol","ol","x"], Ole: ["ab"] })) === '{"elo":["ol"]}');
   return r;
 }
 
@@ -743,7 +772,7 @@ function runTests(){
 (function(){
   var $ = function(id){ return document.getElementById(id); };
   var KEY = "silbenzauber.v1", canStore = true;
-  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, fixes: {}, syl: {}, synBal: 50, preview: false, sync: { url: "", code: "", baseTs: null, baseHash: "", mod: 0 } };
+  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, fixes: {}, syl: {}, synBal: 50, preview: false, blocked: {}, sync: { url: "", code: "", baseTs: null, baseHash: "", mod: 0 } };
   // Speicher im Browser (localStorage), alles in try/catch: die App läuft auch ohne Speicher
   function loadStore(o){
       if (!o || typeof o !== "object") return;
@@ -757,12 +786,12 @@ function runTests(){
       var tg = Math.round(Number(o.target)); if (tg >= 10 && tg <= 600) store.target = tg;
       var an = Math.round(Number(o.avgN)); if (an >= 1 && an <= 7) store.avgN = an;
       store.stats = sanitizeStats(o.stats);
-      store.fixes = sanitizeFixes(o.fixes); store.syl = sanitizeSyl(o.syl); var sb = Number(o.synBal); if (o.synBal != null && sb >= 0 && sb <= 100) store.synBal = sb; store.preview = o.preview === true;
+      store.fixes = sanitizeFixes(o.fixes); store.syl = sanitizeSyl(o.syl); var sb = Number(o.synBal); if (o.synBal != null && sb >= 0 && sb <= 100) store.synBal = sb; store.preview = o.preview === true; store.blocked = sanitizeBlocked(o.blocked);
   }
   try { var raw = localStorage.getItem(KEY); if (raw){ var o0 = JSON.parse(raw); loadStore(o0); store.sync = cleanSync(o0.sync); } } catch (e) { canStore = false; }
   // ---------- Synchronisation über einen Cloudflare Worker ----------
   // Pro Gerät: baseTs/baseHash = Cloud-Stand und Inhalt beim letzten Abgleich. Daraus folgt, wer etwas Neues hat; haben beide Neues, wird gefragt.
-  var SYNC_KEYS = ["sets","name","lens","factor","lenBal","auto","target","avgN","stats","fixes","syl","synBal","preview"];
+  var SYNC_KEYS = ["sets","name","lens","factor","lenBal","auto","target","avgN","stats","fixes","syl","synBal","preview","blocked"];
   function cleanSync(x){ x = x || {}; return { url: String(x.url || "").slice(0, 200), code: String(x.code || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64), baseTs: typeof x.baseTs === "number" ? x.baseTs : null, baseHash: String(x.baseHash || ""), mod: Number(x.mod) || 0 }; }
   function snapObj(){ var o = {}; SYNC_KEYS.forEach(function(k){ o[k] = store[k]; }); return o; }
   function snapStr(){ return JSON.stringify(snapObj()); }
@@ -853,7 +882,7 @@ function runTests(){
   function restart(el, cls, ms){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(function(){ el.classList.remove(cls); }, ms); }
   function show(id){
     clearTimeout(speakTimer); if (canSpeak) { try { speechSynthesis.cancel(); } catch (e) {} }
-    ["setup","practice","end","settings","stats"].forEach(function(x){ $(x).classList.toggle("hidden", x !== id); });
+    ["setup","practice","end","settings","stats","syls"].forEach(function(x){ $(x).classList.toggle("hidden", x !== id); });
     $("endBtns").classList.toggle("hidden", id !== "end");
     $("topbar").classList.toggle("hidden", id === "practice" || id === "end");
     $("headline").classList.toggle("hidden", id === "practice" || id === "end");
@@ -869,7 +898,7 @@ function runTests(){
   function renderSets(){
     $("setsBox").classList.toggle("hidden", !store.sets.length);
     $("sets").innerHTML = store.sets.map(function(k){
-      return '<div class="set"><button type="button" class="pick" data-k="' + k + '">' + disp(k) + '</button><button type="button" class="x" data-k="' + k + '" aria-label="' + disp(k) + ' löschen">×</button></div>';
+      return '<div class="set"><button type="button" class="pick" data-k="' + k + '">' + disp(k) + '</button><button type="button" class="pen" data-k="' + k + '" aria-label="Silben zu ' + disp(k) + ' ansehen"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19z M14 7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button><button type="button" class="x" data-k="' + k + '" aria-label="' + disp(k) + ' löschen">×</button></div>';
     }).join("");
   }
   function refresh(){
@@ -919,6 +948,27 @@ function runTests(){
     $("fac").value = store.factor; $("facVal").textContent = store.factor + " %"; $("syn").value = store.synBal; $("synVal").textContent = store.synBal + " %";
     renderBal(); renderAuto(); renderPrev(); $("syncUrl").value = store.sync.url; $("syncCode").value = store.sync.code;
   }
+  // ---- Silben-Übersicht: alle möglichen Silben einer Buchstabenkombination, einzelne Silben sperren ----
+  var sylKey = "", sylLetters = [];
+  function bKey(ls){ return ls.slice().sort().join(""); }
+  function blockedFor(ls){ return store.blocked[bKey(ls)] || []; }
+  function openSyls(k){ sylLetters = parseLetters(k); sylKey = bKey(sylLetters); renderSyls(); show("syls"); }
+  function renderSyls(){
+    var bl = store.blocked[sylKey] || [], h = "", tot = 0, off = 0;
+    store.lens.slice().sort().forEach(function(L){
+      var list = buildSyllables(sylLetters, L).sort();
+      if (!list.length) return;
+      h += '<p class="lenh">Silben mit ' + L + ' Buchstaben (' + list.length + ')</p>';
+      list.forEach(function(sy){
+        var b = bl.indexOf(sy) >= 0, t = store.syl[sy] ? String(Math.round(avgLast(store.syl[sy], 10) * 10) / 10).replace(".", ",") + " s" : "";
+        tot++; if (b) off++;
+        h += '<div class="sylrow' + (b ? ' off' : '') + '"><span class="w">' + sy.toUpperCase() + '</span><span class="t">' + t + '</span><button type="button" class="tg" data-s="' + sy + '" aria-pressed="' + b + '">' + (b ? "Gesperrt" : "Sperren") + '</button></div>';
+      });
+    });
+    $("sylsTitle").textContent = disp(sylLetters.join(""));
+    $("sylsInfo").textContent = tot ? "Aktiv: " + (tot - off) + " von " + tot + " Silben. Gesperrte Silben kommen in der Übung nicht vor. Gezeigt werden die in den Einstellungen gewählten Silbenlängen." + (tot - off < 3 ? " Achtung: Bei weniger als 3 aktiven Silben wird die Sperre ignoriert." : "") : "Mit diesen Buchstaben lassen sich keine Silben bilden.";
+    $("sylsList").innerHTML = h; $("sylsClear").classList.toggle("hidden", !bl.length);
+  }
   function renderPrev(){ $("prevOn").setAttribute("aria-pressed", store.preview); $("prevOff").setAttribute("aria-pressed", !store.preview); }
   function renderAutoTable(){
     var cs = store.stats.combos, f = function(v){ return typeof v === "number" ? v + " %" : "–"; };
@@ -943,7 +993,7 @@ function runTests(){
     var st = store.stats, h = '<div class="card"><div class="srow"><div><div class="num">' + st.total + '</div>Beendete Runden insgesamt</div>' + delBtn("total") + '</div></div>';
     if (!st.combos.length) h += '<div class="card">Noch keine Statistik. Sobald eine Runde komplett beendet wurde, erscheint sie hier.</div>';
     st.combos.forEach(function(c){
-      h += '<div class="card"><div class="srow"><div><div class="ct">' + disp(c.letters) + '</div>Silben mit ' + c.lens.join(", ") + ' Buchstaben<br>Gespielte Runden: <b>' + c.rounds + '</b>' + (typeof c.bal === "number" && typeof c.sd === "number" ? '<br>Schwierigkeit: Längen ' + c.bal + ' %, Silben ' + c.sd + ' %' : '') + '</div>' + delBtn(c.key) + '</div>' + chartSvg(c.times, c.rounds) + '</div>';
+      h += '<div class="card"><div class="srow"><div><div class="ct">' + disp(c.order || c.letters) + '</div><span style="font-size:1rem">' + (c.lens.length > 1 ? Math.min.apply(null, c.lens) + "-" + Math.max.apply(null, c.lens) : c.lens[0]) + ' Buchstaben, ' + c.rounds + ' Runden' + (typeof c.bal === "number" && typeof c.sd === "number" ? ', Schwierigkeit ' + c.bal + ' %/' + c.sd + ' %' : '') + '</span></div>' + delBtn(c.key) + '</div>' + chartSvg(c.times, c.rounds) + '</div>';
     });
     var ks = Object.keys(store.syl).filter(function(k){ return store.syl[k].length; }).sort(function(a, b){ return avgLast(store.syl[b], 10) - avgLast(store.syl[a], 10); });
     h += '<div class="card"><div class="srow"><div style="flex:1"><details id="sylDet"' + (wasOpen ? ' open' : '') + '><summary style="font-size:1.3rem">Zeit pro Silbe (' + ks.length + ')</summary>' +
@@ -997,7 +1047,7 @@ function runTests(){
       curBal = store.lenBal; curSd = store.synBal;
       if (store.auto){ curBal = startVal(store.stats, letters, store.lens, "bal", store.lenBal); curSd = store.lens.length > 1 ? sdFromLen(curBal) : startVal(store.stats, letters, store.lens, "sd", store.synBal); }
       var sa = {}; Object.keys(store.syl).forEach(function(k){ sa[k] = avgLast(store.syl[k], 10); });
-      round = makeRound(letters, store.lens, store.factor, 20, curBal, sa, curSd); idx = 0; prevShown = "";
+      round = makeRound(letters, store.lens, store.factor, 20, curBal, sa, curSd, blockedFor(letters)); idx = 0; prevShown = "";
       cased = round.map(function(x){ return randomCase(x); });   // Schreibweise vorab festlegen, damit die Vorschau stimmt
       show("practice"); showTask();
     } catch (e) { show("setup"); $("msg").textContent = "Etwas ist schiefgelaufen. Bitte noch einmal versuchen."; }
@@ -1097,6 +1147,14 @@ function runTests(){
   });
   $("syncBtn").addEventListener("click", function(){ syncNow(true); });
   document.addEventListener("visibilitychange", function(){ if (!document.hidden) syncNow(false); });
+  $("sylsList").addEventListener("click", function(e){
+    var b = e.target.closest(".tg"); if (!b) return; var sy = b.getAttribute("data-s"), bl = (store.blocked[sylKey] || []).slice(), i = bl.indexOf(sy);
+    if (i >= 0) bl.splice(i, 1); else bl.push(sy);
+    if (bl.length) store.blocked[sylKey] = bl; else delete store.blocked[sylKey];
+    persist(); renderSyls();
+  });
+  $("sylsClear").addEventListener("click", function(){ delete store.blocked[sylKey]; persist(); renderSyls(); });
+  $("doneSyls").addEventListener("click", function(){ show("setup"); refresh(); });
   // Accordion: es ist immer nur ein Bereich der Einstellungen offen
   var accs = document.querySelectorAll("#settings details.acc");
   Array.prototype.forEach.call(accs, function(d){
@@ -1125,6 +1183,7 @@ function runTests(){
   $("saveSet").addEventListener("click", function(){ store.sets = addSet(store.sets, letters); persist(); renderSets(); });
   $("sets").addEventListener("click", function(e){
     var b = e.target.closest("button"); if (!b) return; var k = b.getAttribute("data-k");
+    if (b.className === "pen"){ openSyls(k); return; }
     if (b.className === "x"){ store.sets = removeSet(store.sets, k); persist(); renderSets(); }
     else { $("inp").value = k.split("").join(" "); refresh(); }
   });
