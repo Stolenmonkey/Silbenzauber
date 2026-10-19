@@ -183,6 +183,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 .stage.pvon .sylwrap{transform:translateX(calc(-1 * min(14vw,90px)))}
 @keyframes flyBack{0%{transform:translate(255px,10px)}25%{transform:translate(160px,-14px)}50%{transform:translate(20px,8px)}75%{transform:translate(-70px,-10px)}100%{transform:translate(-125px,6px)}}
 .lawn.dyn .fly2{animation:flyBack 23s linear infinite}
+.dlg{position:fixed;inset:0;background:rgba(31,42,68,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}.dlg .card{max-width:420px;width:100%}
 </style>
 </head>
 <body>
@@ -285,6 +286,16 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
     <button class="btn alt small" id="fixAdd" type="button">Hinzufügen</button>
     <div class="sets" id="fixList"></div>
   </details>
+  <details class="acc"><summary>Geräte abgleichen</summary>
+    <p class="hint" style="margin-top:6px">Mit Adresse und Code teilen mehrere Geräte denselben Spielstand (Statistik, Silbenzeiten, Schwierigkeit, Einstellungen). Auf jedem Gerät dasselbe eintragen.</p>
+    <label for="syncUrl" style="display:block;margin-top:12px">Adresse des Workers</label>
+    <input id="syncUrl" class="plain" type="text" inputmode="url" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="https://….workers.dev" style="font-size:1.1rem">
+    <label for="syncCode" style="display:block;margin-top:12px">Familiencode</label>
+    <input id="syncCode" class="plain" type="text" autocapitalize="none" autocomplete="off" spellcheck="false" style="font-size:1.1rem">
+    <button class="btn alt small" id="syncGen" type="button">Neuen Code erzeugen</button>
+    <button class="btn alt small" id="syncBtn" type="button">Jetzt abgleichen</button>
+    <div id="syncMsg" class="spst sp-unk" role="status">Noch nicht eingerichtet.</div>
+  </details>
   <button class="btn" id="doneSet" type="button" style="margin-top:18px">Fertig</button>
 </section>
 
@@ -316,6 +327,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
   <button class="iconbtn statbtn" id="endStats" type="button" aria-label="Statistik"><svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><rect x="2.5" y="13" width="5" height="8" rx="1.5" fill="#e8505b"/><rect x="9.5" y="7" width="5" height="14" rx="1.5" fill="#f5b800"/><rect x="16.5" y="2.5" width="5" height="18.5" rx="1.5" fill="#2faa5a"/></svg></button>
 </div>
 <div class="lawn" id="lawn" aria-hidden="true"><svg viewBox="0 0 400 100" preserveAspectRatio="xMidYMax slice"><path d="M0 58Q80 30 170 50T400 40V100H0Z" fill="#c4ecba"/><path d="M0 70Q110 45 220 66T400 58V100H0Z" fill="#a6dea0"/><path d="M0 82Q100 66 200 80T400 74V100H0Z" fill="#82d08a"/><circle cx="30" cy="67" r="10" fill="#6cc47a"/><circle cx="44" cy="63" r="12" fill="#62bd72"/><circle cx="58" cy="68" r="9" fill="#6cc47a"/><circle cx="352" cy="60" r="9" fill="#6cc47a"/><circle cx="366" cy="56" r="11" fill="#62bd72"/><circle cx="380" cy="61" r="9" fill="#6cc47a"/><rect x="116" y="70.6" width="4" height="6" rx="1.5" fill="#fff3dc"/><path d="M111.5 70.6Q111.5 63.1 118 63.1Q124.5 63.1 124.5 70.6Z" fill="#e8505b"/><circle cx="115.5" cy="67.1" r="1.1" fill="#fff"/><circle cx="120.5" cy="66.1" r="1" fill="#fff"/><rect x="320" y="81.4" width="4" height="6" rx="1.5" fill="#fff3dc"/><path d="M315.5 81.4Q315.5 73.9 322 73.9Q328.5 73.9 328.5 81.4Z" fill="#e8505b"/><circle cx="319.5" cy="77.9" r="1.1" fill="#fff"/><circle cx="324.5" cy="76.9" r="1" fill="#fff"/><g class="sway sa"><path d="M1.2 84.5Q3.2 78 3.4 74.4Q3.1 79.9 4.8 84.5Z" fill="#5fbf70"/><path d="M15.5 82.5Q16.1 74.5 14.9 69.9Q16.3 76.8 19.1 82.5Z" fill="#5fbf70"/><path d="M29.4 80.7Q31.6 73.4 31.9 69.2Q31.5 75.5 33 80.7Z" fill="#5fbf70"/><path d="M39.6 79.7Q41.2 73.1 41 69.4Q41.2 75 43.2 79.7Z" fill="#5fbf70"/><path d="M52.7 78.5Q56 69.7 57.5 64.5Q55.7 72.3 56.3 78.5Z" fill="#5fbf70"/><path d="M66.4 77.6Q69.2 71.3 70.3 67.8Q69 73.1 70 77.6Z" fill="#5fbf70"/><path d="M77.9 77Q79.4 68.3 79 63.2Q79.4 70.9 81.5 77Z" fill="#5fbf70"/><path d="M90.3 76.6Q91 68.8 89.8 64.3Q91.2 71.1 93.9 76.6Z" fill="#5fbf70"/><path d="M103.2 76.5Q105.7 71.1 106.4 68.1Q105.6 72.5 106.8 76.5Z" fill="#5fbf70"/><path d="M116.2 76.6Q117.4 68.6 116.8 63.9Q117.5 70.9 119.8 76.6Z" fill="#5fbf70"/><path d="M131.8 77Q132.8 71.5 132.1 68.5Q133 73 135.4 77Z" fill="#5fbf70"/><path d="M143.8 77.6Q145.2 70.5 144.8 66.4Q145.3 72.5 147.4 77.6Z" fill="#5fbf70"/><path d="M156 78.4Q158.7 70 159.7 65.1Q158.5 72.5 159.6 78.4Z" fill="#5fbf70"/><path d="M170.1 79.7Q171.7 72.5 171.5 68.4Q171.7 74.6 173.7 79.7Z" fill="#5fbf70"/><path d="M182.3 81Q183.5 73.9 182.8 69.8Q183.6 75.9 185.9 81Z" fill="#5fbf70"/><path d="M194.1 82.4Q197.2 76.7 198.4 73.5Q196.9 78.3 197.7 82.4Z" fill="#5fbf70"/><path d="M206 84Q206.7 77 205.6 73Q206.9 79 209.6 84Z" fill="#5fbf70"/><path d="M218.1 85.5Q218.5 80.7 217 78.2Q218.8 82 221.7 85.5Z" fill="#5fbf70"/><path d="M231.4 86.7Q234.7 80.8 236.2 77.5Q234.4 82.4 235 86.7Z" fill="#5fbf70"/><path d="M244.9 87.7Q246.2 79.2 245.8 74.3Q246.3 81.7 248.5 87.7Z" fill="#5fbf70"/><path d="M258.2 88.3Q259.6 81.1 259.2 77Q259.7 83.2 261.8 88.3Z" fill="#5fbf70"/><path d="M272 88.7Q274.5 82.5 275.3 79Q274.4 84.2 275.6 88.7Z" fill="#5fbf70"/><path d="M284.4 88.8Q285.4 82.1 284.6 78.4Q285.6 84 288 88.8Z" fill="#5fbf70"/><path d="M298.3 88.5Q299.2 81.1 298.3 76.8Q299.3 83.2 301.9 88.5Z" fill="#5fbf70"/><path d="M310.7 88Q312.3 82.6 312 79.6Q312.3 84 314.3 88Z" fill="#5fbf70"/><path d="M323.2 87.2Q326 80.5 327 76.7Q325.8 82.4 326.8 87.2Z" fill="#5fbf70"/><path d="M335.9 86.2Q337.4 80.7 337.1 77.7Q337.5 82.2 339.5 86.2Z" fill="#5fbf70"/><path d="M348.8 84.8Q351.8 80.1 352.9 77.6Q351.5 81.3 352.4 84.8Z" fill="#5fbf70"/><path d="M359.5 83.5Q359.9 77 358.5 73.3Q360.2 78.8 363.1 83.5Z" fill="#5fbf70"/><path d="M372.4 81.6Q375.2 74.2 376.1 70Q375 76.4 376 81.6Z" fill="#5fbf70"/><path d="M386.2 79.3Q387.1 71.7 386.1 67.3Q387.3 73.9 389.8 79.3Z" fill="#5fbf70"/></g><g class="sway sb"><path d="M6.4 83.7Q8.3 77.2 8.3 73.5Q8.3 79 10 83.7Z" fill="#4fb064"/><path d="M19.4 81.9Q22.1 77 23 74.3Q21.9 78.3 23 81.9Z" fill="#4fb064"/><path d="M33 80.3Q34.9 75.7 34.9 73.2Q34.8 76.9 36.6 80.3Z" fill="#4fb064"/><path d="M44.6 79.2Q46.8 72.4 47.3 68.6Q46.8 74.3 48.2 79.2Z" fill="#4fb064"/><path d="M57.8 78.1Q59 70.6 58.5 66.2Q59.1 72.7 61.4 78.1Z" fill="#4fb064"/><path d="M70.4 77.4Q73.3 68.7 74.3 63.7Q73.1 71.3 74 77.4Z" fill="#4fb064"/><path d="M81.2 76.9Q83.9 69.6 84.7 65.5Q83.7 71.7 84.8 76.9Z" fill="#4fb064"/><path d="M94.1 76.6Q94.6 71.5 93.2 68.8Q94.8 72.9 97.7 76.6Z" fill="#4fb064"/><path d="M106.7 76.5Q107.4 69.2 106.2 65Q107.6 71.3 110.3 76.5Z" fill="#4fb064"/><path d="M121.3 76.7Q122.8 71.2 122.5 68.2Q122.9 72.7 124.9 76.7Z" fill="#4fb064"/><path d="M136.7 77.2Q137.9 71.2 137.2 67.9Q138 72.9 140.3 77.2Z" fill="#4fb064"/><path d="M148 77.9Q149.7 69.2 149.7 64.1Q149.7 71.8 151.6 77.9Z" fill="#4fb064"/><path d="M159.7 78.7Q162.2 73.3 162.9 70.4Q162.1 74.8 163.3 78.7Z" fill="#4fb064"/><path d="M173.6 80Q176.7 75.2 178.1 72.7Q176.5 76.5 177.2 80Z" fill="#4fb064"/><path d="M185.9 81.4Q186.4 73.8 185.1 69.3Q186.6 76 189.5 81.4Z" fill="#4fb064"/><path d="M197.8 82.9Q198.9 78.3 198.2 75.8Q199 79.5 201.4 82.9Z" fill="#4fb064"/><path d="M210 84.5Q213.2 76.2 214.6 71.3Q212.9 78.6 213.6 84.5Z" fill="#4fb064"/><path d="M223.3 86Q226.5 78.4 227.9 74.1Q226.2 80.6 226.9 86Z" fill="#4fb064"/><path d="M234.7 87Q237.3 80.1 238 76.2Q237.1 82.1 238.3 87Z" fill="#4fb064"/><path d="M249.6 87.9Q252.5 79.6 253.6 74.6Q252.3 82 253.2 87.9Z" fill="#4fb064"/><path d="M262.6 88.5Q263.2 81.3 261.9 77.2Q263.4 83.4 266.2 88.5Z" fill="#4fb064"/><path d="M276.5 88.8Q279.3 82.3 280.4 78.7Q279.1 84.1 280.1 88.8Z" fill="#4fb064"/><path d="M289.2 88.7Q291.3 82 291.7 78.2Q291.2 83.9 292.8 88.7Z" fill="#4fb064"/><path d="M301.8 88.4Q304.1 80 304.6 75Q304 82.4 305.4 88.4Z" fill="#4fb064"/><path d="M315.6 87.7Q318.6 79.3 319.7 74.3Q318.3 81.8 319.2 87.7Z" fill="#4fb064"/><path d="M328.2 86.8Q331.4 79.2 332.7 74.9Q331.1 81.4 331.8 86.8Z" fill="#4fb064"/><path d="M340.4 85.7Q341.7 79 341.1 75.3Q341.8 80.9 344 85.7Z" fill="#4fb064"/><path d="M352.1 84.4Q354.2 76.8 354.4 72.4Q354.1 79 355.7 84.4Z" fill="#4fb064"/><path d="M364.5 82.8Q365.3 77.2 364.2 74.1Q365.5 78.7 368.1 82.8Z" fill="#4fb064"/><path d="M377.7 80.7Q378.6 73.3 377.7 68.9Q378.8 75.4 381.3 80.7Z" fill="#4fb064"/><path d="M390 78.6Q392.4 72.5 393 69.2Q392.3 74.2 393.6 78.6Z" fill="#4fb064"/></g><g class="sway sc"><path d="M10.9 83.1Q12.8 77.7 12.8 74.8Q12.8 79.2 14.5 83.1Z" fill="#74cc7e"/><path d="M24.1 81.4Q27.4 76.6 28.8 74.1Q27.1 77.8 27.7 81.4Z" fill="#74cc7e"/><path d="M36.3 80Q37.3 74.6 36.6 71.7Q37.5 76.1 39.9 80Z" fill="#74cc7e"/><path d="M48.9 78.8Q50.6 71.4 50.5 67.2Q50.6 73.6 52.5 78.8Z" fill="#74cc7e"/><path d="M61.5 77.9Q62 72.1 60.7 68.9Q62.3 73.7 65.1 77.9Z" fill="#74cc7e"/><path d="M73.6 77.2Q76.7 71.7 77.9 68.7Q76.4 73.2 77.2 77.2Z" fill="#74cc7e"/><path d="M85 76.8Q86.3 71.8 85.8 69.2Q86.4 73.1 88.6 76.8Z" fill="#74cc7e"/><path d="M99 76.5Q101 71.1 101.2 68.2Q101 72.6 102.6 76.5Z" fill="#74cc7e"/><path d="M110.8 76.5Q111.9 71 111.2 68Q112.1 72.5 114.4 76.5Z" fill="#74cc7e"/><path d="M126.4 76.8Q127 69.5 125.8 65.3Q127.2 71.6 130 76.8Z" fill="#74cc7e"/><path d="M140 77.4Q142.1 72.4 142.3 69.8Q142 73.7 143.6 77.4Z" fill="#74cc7e"/><path d="M152.4 78.2Q153.3 69.9 152.3 65.1Q153.5 72.3 156 78.2Z" fill="#74cc7e"/><path d="M165 79.2Q168.1 73.8 169.5 70.8Q167.9 75.2 168.6 79.2Z" fill="#74cc7e"/><path d="M177.3 80.4Q178.3 72.8 177.6 68.5Q178.5 75 180.9 80.4Z" fill="#74cc7e"/><path d="M189.6 81.8Q192.4 74.9 193.5 70.9Q192.2 76.9 193.2 81.8Z" fill="#74cc7e"/><path d="M202 83.5Q202.8 78.7 201.8 76.1Q203 79.9 205.6 83.5Z" fill="#74cc7e"/><path d="M214.6 85.1Q216.7 77.6 216.9 73.2Q216.6 79.7 218.2 85.1Z" fill="#74cc7e"/><path d="M226.6 86.3Q228.3 79 228.3 74.8Q228.3 81.1 230.2 86.3Z" fill="#74cc7e"/><path d="M239.9 87.4Q242.3 79.7 242.9 75.2Q242.2 81.9 243.5 87.4Z" fill="#74cc7e"/><path d="M253.7 88.2Q256.6 80.2 257.7 75.6Q256.4 82.5 257.3 88.2Z" fill="#74cc7e"/><path d="M267.2 88.6Q270.2 79.8 271.3 74.7Q270 82.4 270.8 88.6Z" fill="#74cc7e"/><path d="M279.9 88.8Q280.3 81 278.9 76.5Q280.6 83.3 283.5 88.8Z" fill="#74cc7e"/><path d="M294.4 88.6Q294.7 82.9 293.3 79.8Q295 84.5 298 88.6Z" fill="#74cc7e"/><path d="M306 88.2Q307.3 79.9 306.8 75Q307.4 82.3 309.6 88.2Z" fill="#74cc7e"/><path d="M319.7 87.5Q320.9 80.4 320.4 76.4Q321 82.4 323.3 87.5Z" fill="#74cc7e"/><path d="M332.1 86.5Q333.7 81.2 333.6 78.3Q333.7 82.6 335.7 86.5Z" fill="#74cc7e"/><path d="M345.5 85.2Q347.1 76.5 347 71.3Q347.2 79 349.1 85.2Z" fill="#74cc7e"/><path d="M356 83.9Q356.4 76 354.9 71.4Q356.7 78.3 359.6 83.9Z" fill="#74cc7e"/><path d="M367.8 82.3Q369.5 75 369.3 70.9Q369.5 77.1 371.4 82.3Z" fill="#74cc7e"/><path d="M382 80Q382.3 74.7 380.9 71.8Q382.6 76.1 385.6 80Z" fill="#74cc7e"/><path d="M394.4 77.8Q396.9 70.6 397.7 66.5Q396.8 72.6 398 77.8Z" fill="#74cc7e"/></g><g class="flo" style="transform-origin:20px 81.1px;animation-delay:-2.7s"><path d="M20 81.1Q21.5 70.3 20 59.6" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><circle cx="23.4" cy="59.6" r="1.9" fill="#fff"/><circle cx="21.7" cy="62.5" r="1.9" fill="#fff"/><circle cx="18.3" cy="62.5" r="1.9" fill="#fff"/><circle cx="16.6" cy="59.6" r="1.9" fill="#fff"/><circle cx="18.3" cy="56.7" r="1.9" fill="#fff"/><circle cx="21.7" cy="56.7" r="1.9" fill="#fff"/><circle cx="20" cy="59.6" r="2.1" fill="#ffd93d"/></g><g class="flo" style="transform-origin:48px 78px;animation-delay:-2.8s"><path d="M48 78Q49.5 71.5 48 65" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><path d="M44.8 60Q44.8 67.5 48 67.5Q51.2 67.5 51.2 60L49.6 62.2L48 59.2L46.4 62.2L44.8 60Z" fill="#ffd93d"/></g><g class="flo" style="transform-origin:78px 76.1px;animation-delay:-0.4s"><path d="M78 76.1Q79.5 65.7 78 55.4" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><circle cx="80.6" cy="55.4" r="1.7" fill="#7b5fd6"/><circle cx="78.8" cy="57.9" r="1.7" fill="#7b5fd6"/><circle cx="75.9" cy="56.9" r="1.7" fill="#7b5fd6"/><circle cx="75.9" cy="53.9" r="1.7" fill="#7b5fd6"/><circle cx="78.8" cy="52.9" r="1.7" fill="#7b5fd6"/><circle cx="78" cy="55.4" r="1.6" fill="#fff6c8"/></g><g class="flo" style="transform-origin:104px 75.5px;animation-delay:-1.9s"><path d="M104 75.5Q105.5 66.8 104 58" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><circle cx="107.4" cy="58" r="1.9" fill="#fff"/><circle cx="105.7" cy="61" r="1.9" fill="#fff"/><circle cx="102.3" cy="61" r="1.9" fill="#fff"/><circle cx="100.6" cy="58" r="1.9" fill="#fff"/><circle cx="102.3" cy="55.1" r="1.9" fill="#fff"/><circle cx="105.7" cy="55.1" r="1.9" fill="#fff"/><circle cx="104" cy="58" r="2.1" fill="#ffd93d"/></g><g class="flo" style="transform-origin:138px 76.2px;animation-delay:-1.1s"><path d="M138 76.2Q139.5 64.7 138 53.3" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><path d="M134.8 48.3Q134.8 55.8 138 55.8Q141.2 55.8 141.2 48.3L139.6 50.5L138 47.5L136.4 50.5L134.8 48.3Z" fill="#ff9f43"/></g><g class="flo" style="transform-origin:166px 78.1px;animation-delay:-2.6s"><path d="M166 78.1Q167.5 68.7 166 59.3" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><circle cx="168.6" cy="59.3" r="1.7" fill="#ff8fb1"/><circle cx="166.8" cy="61.8" r="1.7" fill="#ff8fb1"/><circle cx="163.9" cy="60.8" r="1.7" fill="#ff8fb1"/><circle cx="163.9" cy="57.8" r="1.7" fill="#ff8fb1"/><circle cx="166.8" cy="56.8" r="1.7" fill="#ff8fb1"/><circle cx="166" cy="59.3" r="1.6" fill="#fff6c8"/></g><g class="flo" style="transform-origin:196px 81.5px;animation-delay:-2.8s"><path d="M196 81.5Q197.5 70.7 196 59.9" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><circle cx="199.4" cy="59.9" r="1.9" fill="#fff"/><circle cx="197.7" cy="62.8" r="1.9" fill="#fff"/><circle cx="194.3" cy="62.8" r="1.9" fill="#fff"/><circle cx="192.6" cy="59.9" r="1.9" fill="#fff"/><circle cx="194.3" cy="56.9" r="1.9" fill="#fff"/><circle cx="197.7" cy="56.9" r="1.9" fill="#fff"/><circle cx="196" cy="59.9" r="2.1" fill="#ffd93d"/></g><g class="flo" style="transform-origin:226px 85.1px;animation-delay:-2s"><path d="M226 85.1Q227.5 76.3 226 67.5" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><path d="M222.8 62.5Q222.8 70 226 70Q229.2 70 229.2 62.5L227.6 64.7L226 61.7L224.4 64.7L222.8 62.5Z" fill="#7b5fd6"/></g><g class="flo" style="transform-origin:254px 87.1px;animation-delay:-2.2s"><path d="M254 87.1Q255.5 79.9 254 72.6" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><circle cx="256.6" cy="72.6" r="1.7" fill="#e8505b"/><circle cx="254.8" cy="75.1" r="1.7" fill="#e8505b"/><circle cx="251.9" cy="74.2" r="1.7" fill="#e8505b"/><circle cx="251.9" cy="71.1" r="1.7" fill="#e8505b"/><circle cx="254.8" cy="70.1" r="1.7" fill="#e8505b"/><circle cx="254" cy="72.6" r="1.6" fill="#fff6c8"/></g><g class="flo" style="transform-origin:284px 87.8px;animation-delay:-1.9s"><path d="M284 87.8Q285.5 76.9 284 65.9" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><circle cx="287.4" cy="65.9" r="1.9" fill="#fff"/><circle cx="285.7" cy="68.9" r="1.9" fill="#fff"/><circle cx="282.3" cy="68.9" r="1.9" fill="#fff"/><circle cx="280.6" cy="65.9" r="1.9" fill="#fff"/><circle cx="282.3" cy="63" r="1.9" fill="#fff"/><circle cx="285.7" cy="63" r="1.9" fill="#fff"/><circle cx="284" cy="65.9" r="2.1" fill="#ffd93d"/></g><g class="flo" style="transform-origin:312px 87px;animation-delay:-0.6s"><path d="M312 87Q313.5 76.7 312 66.4" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><path d="M308.8 61.4Q308.8 68.9 312 68.9Q315.2 68.9 315.2 61.4L313.6 63.6L312 60.6L310.4 63.6L308.8 61.4Z" fill="#ff8fb1"/></g><g class="flo" style="transform-origin:340px 84.9px;animation-delay:-2.9s"><path d="M340 84.9Q341.5 73.5 340 62.1" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><circle cx="342.6" cy="62.1" r="1.7" fill="#ffd93d"/><circle cx="340.8" cy="64.6" r="1.7" fill="#ffd93d"/><circle cx="337.9" cy="63.7" r="1.7" fill="#ffd93d"/><circle cx="337.9" cy="60.6" r="1.7" fill="#ffd93d"/><circle cx="340.8" cy="59.7" r="1.7" fill="#ffd93d"/><circle cx="340" cy="62.1" r="1.6" fill="#fff6c8"/></g><g class="flo" style="transform-origin:368px 81.5px;animation-delay:-1.6s"><path d="M368 81.5Q369.5 69.7 368 57.8" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><circle cx="371.4" cy="57.8" r="1.9" fill="#fff"/><circle cx="369.7" cy="60.7" r="1.9" fill="#fff"/><circle cx="366.3" cy="60.7" r="1.9" fill="#fff"/><circle cx="364.6" cy="57.8" r="1.9" fill="#fff"/><circle cx="366.3" cy="54.9" r="1.9" fill="#fff"/><circle cx="369.7" cy="54.9" r="1.9" fill="#fff"/><circle cx="368" cy="57.8" r="2.1" fill="#ffd93d"/></g><g class="flo" style="transform-origin:388px 78.3px;animation-delay:-1s"><path d="M388 78.3Q389.5 67.5 388 56.8" fill="none" stroke="#4fb064" stroke-width="1.5" stroke-linecap="round"/><path d="M384.8 51.8Q384.8 59.3 388 59.3Q391.2 59.3 391.2 51.8L389.6 54L388 51L386.4 54L384.8 51.8Z" fill="#e8505b"/></g><g transform="translate(300 46) scale(1.5)" class="bf1"><g class="fly"><g class="wing"><g transform="scale(.72)"><ellipse cx="-6" cy="-3.2" rx="6.6" ry="4.4" transform="rotate(-28 -6 -3.2)" fill="#ff8fb1"/><ellipse cx="6" cy="-3.2" rx="6.6" ry="4.4" transform="rotate(28 6 -3.2)" fill="#ff8fb1"/><ellipse cx="-4.6" cy="3.6" rx="4.2" ry="3" transform="rotate(25 -4.6 3.6)" fill="#ffc2d4"/><ellipse cx="4.6" cy="3.6" rx="4.2" ry="3" transform="rotate(-25 4.6 3.6)" fill="#ffc2d4"/><circle cx="-7.4" cy="-3.6" r="1.3" fill="#7b5fd6"/><circle cx="7.4" cy="-3.6" r="1.3" fill="#7b5fd6"/><circle cx="-5" cy="3.8" r="0.9" fill="#fff"/><circle cx="5" cy="3.8" r="0.9" fill="#fff"/></g></g><ellipse cx="0" cy="0" rx="1" ry="4.8" fill="#1f2a44"/><path d="M0 -4Q-1.6 -7.6 -3.8 -8.4M0 -4Q1.6 -7.6 3.8 -8.4" fill="none" stroke="#1f2a44" stroke-width=".6" stroke-linecap="round"/></g></g><g transform="translate(90 68) scale(1.3)" class="bf2"><g class="fly2"><g class="wing"><g transform="scale(.72)"><ellipse class="wa" cx="-6" cy="-3.2" rx="6.6" ry="4.4" transform="rotate(-28 -6 -3.2)" fill="#ff8fb1"/><ellipse class="wa" cx="6" cy="-3.2" rx="6.6" ry="4.4" transform="rotate(28 6 -3.2)" fill="#ff8fb1"/><ellipse class="wb" cx="-4.6" cy="3.6" rx="4.2" ry="3" transform="rotate(25 -4.6 3.6)" fill="#ffc2d4"/><ellipse class="wb" cx="4.6" cy="3.6" rx="4.2" ry="3" transform="rotate(-25 4.6 3.6)" fill="#ffc2d4"/><circle class="wc" cx="-7.4" cy="-3.6" r="1.3" fill="#7b5fd6"/><circle class="wc" cx="7.4" cy="-3.6" r="1.3" fill="#7b5fd6"/><circle cx="-5" cy="3.8" r="0.9" fill="#fff"/><circle cx="5" cy="3.8" r="0.9" fill="#fff"/></g></g><ellipse cx="0" cy="0" rx="1" ry="4.8" fill="#1f2a44"/><path d="M0 -4Q-1.6 -7.6 -3.8 -8.4M0 -4Q1.6 -7.6 3.8 -8.4" fill="none" stroke="#1f2a44" stroke-width=".6" stroke-linecap="round"/></g></g></svg></div>
+<div id="syncDlg" class="dlg hidden" role="dialog" aria-modal="true"><div class="card"><h2 style="margin:0 0 8px;font-size:1.5rem">Welcher Spielstand gilt?</h2><p style="margin:0 0 12px">Auf diesem Gerät und in der Cloud gibt es unterschiedliche Änderungen.</p><p id="dlgLocal" style="margin:6px 0"></p><p id="dlgCloud" style="margin:6px 0"></p><button class="btn" id="dlgKeep" type="button" style="margin-top:14px">Diesen Stand behalten</button><button class="btn alt small" id="dlgCloudBtn" type="button">Cloud-Stand laden</button></div></div>
 <pre id="tests" class="hidden"></pre>
 </main>
 
@@ -731,12 +743,10 @@ function runTests(){
 (function(){
   var $ = function(id){ return document.getElementById(id); };
   var KEY = "silbenzauber.v1", canStore = true;
-  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, fixes: {}, syl: {}, synBal: 50, preview: false };
+  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, fixes: {}, syl: {}, synBal: 50, preview: false, sync: { url: "", code: "", baseTs: null, baseHash: "", mod: 0 } };
   // Speicher im Browser (localStorage), alles in try/catch: die App läuft auch ohne Speicher
-  try {
-    var raw = localStorage.getItem(KEY);
-    if (raw){
-      var o = JSON.parse(raw);
+  function loadStore(o){
+      if (!o || typeof o !== "object") return;
       store.last = parseLetters(String(o.last || "")).join("");
       store.sets = (Array.isArray(o.sets) ? o.sets : []).map(function(k){ return parseLetters(String(k)).join(""); }).filter(Boolean).slice(0, 12);
       store.name = String(o.name || "").slice(0, 20);
@@ -748,9 +758,71 @@ function runTests(){
       var an = Math.round(Number(o.avgN)); if (an >= 1 && an <= 7) store.avgN = an;
       store.stats = sanitizeStats(o.stats);
       store.fixes = sanitizeFixes(o.fixes); store.syl = sanitizeSyl(o.syl); var sb = Number(o.synBal); if (o.synBal != null && sb >= 0 && sb <= 100) store.synBal = sb; store.preview = o.preview === true;
-    }
-  } catch (e) { canStore = false; }
-  function persist(){ try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { canStore = false; } }
+  }
+  try { var raw = localStorage.getItem(KEY); if (raw){ var o0 = JSON.parse(raw); loadStore(o0); store.sync = cleanSync(o0.sync); } } catch (e) { canStore = false; }
+  // ---------- Synchronisation über einen Cloudflare Worker ----------
+  // Pro Gerät: baseTs/baseHash = Cloud-Stand und Inhalt beim letzten Abgleich. Daraus folgt, wer etwas Neues hat; haben beide Neues, wird gefragt.
+  var SYNC_KEYS = ["sets","name","lens","factor","lenBal","auto","target","avgN","stats","fixes","syl","synBal","preview"];
+  function cleanSync(x){ x = x || {}; return { url: String(x.url || "").slice(0, 200), code: String(x.code || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64), baseTs: typeof x.baseTs === "number" ? x.baseTs : null, baseHash: String(x.baseHash || ""), mod: Number(x.mod) || 0 }; }
+  function snapObj(){ var o = {}; SYNC_KEYS.forEach(function(k){ o[k] = store[k]; }); return o; }
+  function snapStr(){ return JSON.stringify(snapObj()); }
+  function hashStr(t){ var h = 5381, i; for (i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return String(h); }
+  var lastSnap = snapStr(), syncing = false, upTimer = null;
+  function persist(){
+    try { var cur = snapStr(); if (cur !== lastSnap){ lastSnap = cur; store.sync.mod = Date.now(); } localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { canStore = false; }
+    scheduleUp();
+  }
+  function cfg(){ return !!store.sync.url && store.sync.code.length >= 16; }
+  function scheduleUp(){
+    if (!cfg() || hashStr(snapStr()) === store.sync.baseHash) return;
+    clearTimeout(upTimer); upTimer = setTimeout(function(){ syncNow(false); }, 4000);
+  }
+  function call(method, body){
+    var u = store.sync.url.replace(/\/+$/, "") + "/?code=" + encodeURIComponent(store.sync.code);
+    return fetch(u, { method: method, body: body ? JSON.stringify(body) : undefined, headers: body ? { "Content-Type": "text/plain" } : undefined }).then(function(r){ return r.json().then(function(j){ return { status: r.status, json: j }; }); });
+  }
+  function syncMsg(t){ var e = $("syncMsg"); if (e) e.textContent = t; }
+  function okMsg(){ syncMsg("Abgeglichen um " + new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + " Uhr."); }
+  function isEmpty(){ return !store.stats.total && !store.stats.combos.length && !Object.keys(store.syl).length; }
+  function applyCloud(sv){
+    var keep = store.last, sy = store.sync;
+    loadStore(sv.data); store.last = keep; store.sync = sy;
+    lastSnap = snapStr(); sy.baseTs = sv.ts; sy.baseHash = hashStr(lastSnap); sy.mod = sv.ts;
+    persist(); renderSets(); refresh();
+    if (!$("settings").classList.contains("hidden")) renderSettings();
+  }
+  function upload(expect){
+    var ts = Date.now();
+    return call("POST", { ts: ts, data: snapObj(), expect: expect }).then(function(r){
+      if (r.status === 409){ syncMsg("Ein anderes Gerät hat gerade gespeichert. Bitte noch einmal abgleichen."); return; }
+      if (r.status !== 200) throw new Error("http");
+      store.sync.baseTs = ts; store.sync.baseHash = hashStr(snapStr()); persist(); okMsg();
+    });
+  }
+  function ask(sv){
+    return new Promise(function(res){
+      var fmt = function(t){ return t ? new Date(t).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "unbekannt"; }, cn = sv.data && sv.data.stats ? sv.data.stats.total : 0, lm = store.sync.mod, newer = lm > sv.ts;
+      $("dlgLocal").textContent = "Dieses Gerät: " + store.stats.total + " Runden, zuletzt geändert " + fmt(lm) + (newer ? " (neuer)" : "");
+      $("dlgCloud").textContent = "Cloud: " + cn + " Runden, zuletzt geändert " + fmt(sv.ts) + (newer ? "" : " (neuer)");
+      $("syncDlg").classList.remove("hidden");
+      $("dlgKeep").onclick = function(){ $("syncDlg").classList.add("hidden"); res(false); };
+      $("dlgCloudBtn").onclick = function(){ $("syncDlg").classList.add("hidden"); res(true); };
+    });
+  }
+  function syncNow(manual){
+    var sy = store.sync;
+    if (!cfg() || syncing){ if (manual) syncMsg(cfg() ? "Läuft bereits …" : "Bitte Adresse und Code eintragen."); return Promise.resolve(); }
+    if (!manual && !$("practice").classList.contains("hidden")) return Promise.resolve();   // nicht mitten in der Runde stören
+    syncing = true; syncMsg("Gleiche ab …");
+    return call("GET").then(function(r){
+      if (r.status !== 200) throw new Error("http");
+      var sv = r.json, changed = hashStr(snapStr()) !== sy.baseHash;
+      if (sv.ts == null) return upload(null);                                  // Cloud ist noch leer
+      if (sv.ts === sy.baseTs){ if (changed) return upload(sv.ts); okMsg(); return; }   // Cloud unverändert
+      if (!changed || isEmpty()){ applyCloud(sv); okMsg(); return; }           // nur die Cloud hat Neues
+      return ask(sv).then(function(useCloud){ if (useCloud){ applyCloud(sv); okMsg(); } else return upload(sv.ts); });   // Konflikt: Abfrage
+    }).catch(function(){ syncMsg("Keine Verbindung. Der Abgleich läuft später automatisch nach."); }).then(function(){ syncing = false; });
+  }
   var disp = function(k){ return k.split("").map(function(c){ return c.toUpperCase(); }).join(" "); };
 
   var letters = [], round = [], idx = 0, locked = false, prevShown = "", roundStart = 0, armed = "", armTimer = null, speakTimer = null, currentSyl = "", cased = [], curBal = 50, curSd = 50, sylStart = 0;
@@ -845,7 +917,7 @@ function runTests(){
     $("nameInp").value = store.name;
     Array.prototype.forEach.call(document.querySelectorAll(".lenbtn"), function(b){ b.setAttribute("aria-pressed", store.lens.indexOf(+b.getAttribute("data-len")) >= 0); });
     $("fac").value = store.factor; $("facVal").textContent = store.factor + " %"; $("syn").value = store.synBal; $("synVal").textContent = store.synBal + " %";
-    renderBal(); renderAuto(); renderPrev();
+    renderBal(); renderAuto(); renderPrev(); $("syncUrl").value = store.sync.url; $("syncCode").value = store.sync.code;
   }
   function renderPrev(){ $("prevOn").setAttribute("aria-pressed", store.preview); $("prevOff").setAttribute("aria-pressed", !store.preview); }
   function renderAutoTable(){
@@ -1015,6 +1087,16 @@ function runTests(){
     else store.stats.combos = store.stats.combos.filter(function(c){ return c.key !== k; });
     persist(); renderStats();
   });
+  function syncReset(){ store.sync.baseTs = null; store.sync.baseHash = ""; }
+  $("syncUrl").addEventListener("input", function(){ store.sync.url = $("syncUrl").value.trim().slice(0, 200); syncReset(); persist(); });
+  $("syncCode").addEventListener("input", function(){ store.sync.code = $("syncCode").value.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64); syncReset(); persist(); });
+  $("syncGen").addEventListener("click", function(){
+    var a = new Uint8Array(24), c = "abcdefghjkmnpqrstuvwxyz23456789", t = "", i; crypto.getRandomValues(a);
+    for (i = 0; i < a.length; i++) t += c[a[i] % c.length];
+    store.sync.code = t; $("syncCode").value = t; syncReset(); persist();
+  });
+  $("syncBtn").addEventListener("click", function(){ syncNow(true); });
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden) syncNow(false); });
   // Accordion: es ist immer nur ein Bereich der Einstellungen offen
   var accs = document.querySelectorAll("#settings details.acc");
   Array.prototype.forEach.call(accs, function(d){
@@ -1099,7 +1181,7 @@ function runTests(){
   });
   if (!canStore) $("saveSet").classList.add("hidden");
   $("inp").value = store.last.split("").join(" ");   // zuletzt benutzte Buchstaben wiederherstellen
-  show("setup"); renderSets(); refresh();
+  show("setup"); renderSets(); refresh(); syncNow(false);
 
   if (location.search.indexOf("test") >= 0){ $("tests").classList.remove("hidden"); $("tests").textContent = runTests().join("\n"); }
 })();
