@@ -16,7 +16,7 @@
 *,*:before,*:after{box-sizing:inherit}
 html,body{margin:0;min-height:100%}
 body{background:#d6e8fb;color:#1f2a44;font-family:"Arial Rounded MT Bold","Nunito","Trebuchet MS",system-ui,sans-serif;font-weight:600;-webkit-tap-highlight-color:transparent}
-main{max-width:720px;margin:0 auto;padding:20px 16px 32px;display:flex;flex-direction:column;gap:20px;min-height:100vh;min-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+main{max-width:720px;margin:0 auto;padding:20px 16px 32px;display:flex;flex-direction:column;gap:20px;min-height:100vh;min-height:calc((100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)) / var(--z,1))}
 .sky,.lawn{pointer-events:none;flex:none}.sky svg{display:block;width:100%;height:56px}.lawn{margin-top:auto;padding-top:12px}.lawn svg{display:block;width:100%;height:clamp(84px,22vw,150px);border-radius:24px}
 main{position:relative;z-index:1}
 .head{display:flex;align-items:center;justify-content:center;gap:12px}
@@ -191,6 +191,17 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 .sylrow button{font:inherit;font-size:1.05rem;min-height:48px;min-width:108px;border-radius:16px;border:3px solid #b9d3f2;background:#fff;color:#1f2a44;cursor:pointer}
 .sylrow.off button{background:#e8505b;border-color:#e8505b;color:#fff}
 .lenh{margin:16px 0 4px;font-size:1.1rem;color:#4b5b7a}
+.sylrow{flex-wrap:wrap}
+.sylrow .t{display:flex;flex-direction:column;align-items:flex-end;min-width:64px;line-height:1.25}
+.sylrow .pc{color:#4b5b7a;font-size:1rem}
+.sylrow button{min-width:96px}
+.tm{cursor:pointer;text-decoration:underline dotted;padding:6px 2px}
+.tdet{flex:0 0 100%}
+.tchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.tchips span{background:#eaf3ff;border-radius:10px;padding:2px 10px;font-size:1rem}
+.tchips .dr{background:#f1f1f1;color:#9aa8c0;text-decoration:line-through}
+.set .pick{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;padding-top:4px;padding-bottom:4px}
+.set .pick small{font-size:.8rem;letter-spacing:0;color:#4b5b7a;font-weight:500}
 </style>
 </head>
 <body>
@@ -222,6 +233,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 <section id="setup" class="card">
   <label for="inp">Welche Buchstaben sollen geübt werden?</label>
   <input id="inp" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="z. B. O L E">
+  <p class="hint" id="curDiff"></p>
   <button class="btn alt small" id="saveSet" type="button" disabled>Diese Buchstaben speichern</button>
   <div id="setsBox" class="hidden"><p style="margin:16px 0 0;font-size:1.15rem">Gespeicherte Buchstaben:</p><div class="sets" id="sets"></div></div>
   <div class="msg" id="msg" role="alert"></div>
@@ -275,7 +287,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
     </div>
     <p style="margin:22px 0 0;font-size:1.15rem">Schwierigkeit der Silben (nach Zeit): <b id="synVal">50 %</b></p>
     <input type="range" id="syn" min="0" max="100" step="5" value="50" aria-label="Schwierigkeit der Silben in Prozent">
-    <p class="hint">0 % = nur Silben, die dem Kind leichtfallen (kurze Zeit bis „Weiter“), 100 % = nur Silben, die länger dauern, 50 % = keine Auswahl. Grundlage sind die letzten 10 Zeiten je Silbe; Silben ohne Zeit zählen als mittel.</p>
+    <p class="hint">0 % = nur Silben, die dem Kind leichtfallen (kurze Zeit bis „Weiter“), 100 % = nur Silben, die länger dauern, 50 % = keine Auswahl. Grundlage sind die letzten 12 Zeiten je Silbe ohne die 2 längsten; Silben ohne Zeit zählen als mittel.</p>
     <p style="margin:22px 0 0;font-size:1.15rem">Silben-Vorschau (nächste Silben rechts, grau)</p>
     <div class="seg"><button type="button" id="prevOff">Aus</button><button type="button" id="prevOn">An</button></div>
     <p style="margin:22px 0 0;font-size:1.15rem">Häufigkeit der hinteren Buchstaben: <b id="facVal">0 %</b></p>
@@ -316,7 +328,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 <section id="syls" class="card hidden">
   <h2 id="sylsTitle" style="margin:0 0 4px;font-size:1.7rem">Silben</h2>
   <p class="hint" id="sylsInfo"></p>
-  <button class="btn alt small" id="sylsClear" type="button">Alle freigeben</button>
+  <button class="btn alt small" id="sylsClear" type="button">Alle hier freigeben</button>
   <div id="sylsList"></div>
   <button class="btn" id="doneSyls" type="button" style="margin-top:18px">Fertig</button>
 </section>
@@ -439,7 +451,8 @@ function lenWeights(lens, bal){
   });
   return w;
 }
-function makeRound(letters, lens, factor, n, bal, sylAvg, sbal, blocked){
+// Alle Silben mit Gewicht für die aktuelle Einstellung (Aufgabenauswahl und Wahrscheinlichkeitsanzeige nutzen dasselbe)
+function buildItems(letters, lens, factor, bal, sylAvg, sbal, blocked){
   var lw = lenWeights(lens, bal);
   var items = [], f = Math.min(100, Math.max(0, factor)) / 100, k = letters.length, last = letters[k - 1];
   lens.forEach(function(L){
@@ -458,6 +471,10 @@ function makeRound(letters, lens, factor, n, bal, sylAvg, sbal, blocked){
   }
   var act = items.filter(function(i){ return i.lw > 0; }); if (act.length >= 3) items = act;   // Länge mit Gewicht 0 entfällt ganz (wenn genug Silben bleiben)
   if (f >= 1){ var only = items.filter(function(i){ return i.has; }); if (only.length >= 3) items = only; }
+  return items;
+}
+function makeRound(letters, lens, factor, n, bal, sylAvg, sbal, blocked){
+  var items = buildItems(letters, lens, factor, bal, sylAvg, sbal, blocked);
   var out = [], cnt = {};
   for (var i = 0; i < n; i++){
     var prev = out[i - 1], cand = items.filter(function(it){ return items.length < 2 || it.s !== prev; }), tot = 0;
@@ -466,6 +483,13 @@ function makeRound(letters, lens, factor, n, bal, sylAvg, sbal, blocked){
     out.push(cand[j].s); cnt[cand[j].s] = (cnt[cand[j].s] || 0) + 1;
   }
   return out;
+}
+// Wahrscheinlichkeit je Silbe pro Aufgabe (ohne die kleine Wiederholungsdämpfung)
+function sylProbs(letters, lens, factor, bal, sylAvg, sbal, blocked){
+  var items = buildItems(letters, lens, factor, bal, sylAvg, sbal, blocked), tot = 0, p = {};
+  items.forEach(function(it){ tot += it.w; });
+  items.forEach(function(it){ p[it.s] = it.w / tot; });
+  return p;
 }
 // Zufällige Schreibweise, unabhängig von der Silbe
 // Nur der erste Buchstabe wird zufällig groß oder klein, alle weiteren sind immer klein
@@ -586,24 +610,30 @@ function startVal(stats, letters, lens, field, fallback){
   return bv === null ? fallback : Math.max(0, bv - 25);
 }
 // Zeit pro Silbe: je Silbe die letzten 10 Zeiten (Sekunden bis „Weiter“, höchstens 30)
-function recordSyl(syl, s, sec){ var k = s.toLowerCase(); syl[k] = (syl[k] || []).concat([Math.max(0, Math.min(30, sec))]).slice(-10); return syl; }
+function recordSyl(syl, s, sec){ var k = s.toLowerCase(); syl[k] = (syl[k] || []).concat([Math.max(0, Math.min(30, sec))]).slice(-12); return syl; }
+// Zeit je Silbe: letzte 12 Zeiten, die 2 längsten werden gestrichen (bei wenigen Zeiten weniger; mindestens 3 bleiben)
+function sylStat(times){
+  var a = (times || []).slice(-12), n = a.length;
+  if (!n) return { avg: null, times: a, dropped: [] };
+  var drop = Math.min(2, Math.max(0, n - 3)), sum = 0, c = 0;
+  var order = a.map(function(v, i){ return i; }).sort(function(x, y){ return a[y] - a[x] || y - x; }), dr = order.slice(0, drop);
+  a.forEach(function(v, i){ if (dr.indexOf(i) < 0){ sum += v; c++; } });
+  return { avg: sum / c, times: a, dropped: dr };
+}
 function sanitizeSyl(o){
   var out = {}, n = 0;
   if (o && typeof o === "object") Object.keys(o).forEach(function(k){
-    var key = String(k).toLowerCase(), t = (Array.isArray(o[k]) ? o[k] : []).map(Number).filter(function(x){ return isFinite(x) && x >= 0; }).map(function(x){ return Math.min(30, x); }).slice(-10);
+    var key = String(k).toLowerCase(), t = (Array.isArray(o[k]) ? o[k] : []).map(Number).filter(function(x){ return isFinite(x) && x >= 0; }).map(function(x){ return Math.min(30, x); }).slice(-12);
     if (/^[a-z]{2,4}$/.test(key) && t.length && n < 600){ out[key] = t; n++; }
   });
   return out;
 }
-// Gesperrte Silben je Buchstabenkombination (Schlüssel = sortierte Buchstaben) prüfen und bereinigen
+// Gesperrte Silben gelten für alle Buchstabenkombinationen (Liste). Alte Speicherstände (je Kombination) werden zusammengeführt.
 function sanitizeBlocked(o){
-  var out = {}, n = 0;
-  if (o && typeof o === "object") Object.keys(o).forEach(function(k){
-    var key = parseLetters(k).join(""), arr = Array.isArray(o[k]) ? o[k] : [], seen = {}, list = [];
-    if (!key || key !== k || key !== key.split("").sort().join("") || n >= 40) return;
-    arr.forEach(function(x){ var q = String(x).toLowerCase(); if (/^[a-z]{2,4}$/.test(q) && !seen[q] && list.length < 600){ seen[q] = 1; list.push(q); } });
-    if (list.length){ out[key] = list; n++; }
-  });
+  var src = [], seen = {}, out = [];
+  if (Array.isArray(o)) src = o;
+  else if (o && typeof o === "object") Object.keys(o).forEach(function(k){ if (Array.isArray(o[k])) src = src.concat(o[k]); });
+  src.forEach(function(x){ var q = String(x).toLowerCase(); if (/^[a-z]{2,4}$/.test(q) && !seen[q] && out.length < 600){ seen[q] = 1; out.push(q); } });
   return out;
 }
 // Gespeicherte Statistik prüfen und bereinigen
@@ -756,15 +786,20 @@ function runTests(){
   ok("Korrekturen: Bereinigung", JSON.stringify(sanitizeFixes({ "TEL": " Tell ", "x1": "<b>", "abcde": "ok", "": "a" })) === '{"tel":"tell"}');
   var sv = { total: 1, combos: [{ key: comboKey(["o","l","e"], [2,3]), letters: "elo", lens: [2,3], times: [10], rounds: 1, bal: 60, sd: 40 }] };
   ok("Start-Schwierigkeit: eigene Kombination, ähnliche -25, sonst Fallback", startVal(sv, ["o","l","e"], [2,3], "bal", 50) === 60 && startVal(sv, ["o","l","e","m"], [2,3], "bal", 50) === 35 && startVal(sv, ["a","b"], [2,3], "bal", 50) === 50);
-  var sl = {}; for (var y = 0; y < 12; y++) recordSyl(sl, "Ola", y);
-  ok("Silbenzeit: nur letzte 10, höchstens 30 s, Bereinigung", sl.ola.length === 10 && sl.ola[0] === 2 && recordSyl({}, "a", 99).a[0] === 30 && Object.keys(sanitizeSyl({ ola: [1, "x"], "Bad1": [1] })).join() === "ola");
+  var sl = {}; for (var y = 0; y < 14; y++) recordSyl(sl, "Ola", y);
+  ok("Silbenzeit: nur letzte 12, höchstens 30 s, Bereinigung", sl.ola.length === 12 && sl.ola[0] === 2 && recordSyl({}, "a", 99).a[0] === 30 && Object.keys(sanitizeSyl({ ola: [1, "x"], "Bad1": [1] })).join() === "ola");
   var allS = buildSyllables(M, 2).concat(buildSyllables(M, 3)), av = {}; allS.forEach(function(q, i){ av[q] = i + 1; });
   var mt = function(sb){ var tt = 0, cc = 0; for (var q = 0; q < 20; q++) makeRound(M, [2,3], 0, 20, 50, av, sb).forEach(function(x){ tt += av[x]; cc++; }); return tt / cc; };
   ok("Silben-Schwierigkeit: 100 % wählt langsamere Silben als 0 %", mt(100) > mt(0) + 3);
   ok("Automatik-Weg: Silben = doppelte Länge, höchstens 100 %", sdFromLen(20) === 40 && sdFromLen(50) === 100 && sdFromLen(80) === 100 && sdFromLen(45) === 90);
-  ok("Sperren: gesperrte Silben kommen nicht vor, Bereinigung", makeRound(M, [2,3], 0, 20, 50, null, 50, ["ol","lo"]).every(function(x){ return x !== "ol" && x !== "lo"; }) && JSON.stringify(sanitizeBlocked({ elo: ["Ol","ol","x"], Ole: ["ab"] })) === '{"elo":["ol"]}');
+  ok("Sperren: gesperrte Silben kommen nicht vor, Bereinigung", makeRound(M, [2,3], 0, 20, 50, null, 50, ["ol","lo"]).every(function(x){ return x !== "ol" && x !== "lo"; }) && JSON.stringify(sanitizeBlocked({ elo: ["Ol","ol","x"], Ole: ["ab"] })) === '["ol","ab"]');
   ok("Doppelungen bleiben verboten (ee, oo, ll, all, alle, ball); als ist gültig", ["als","ols","lol","lel"].every(isValid) && !["ee","oo","ll","loo","all","alle","ell","ball","aale"].some(isValid));
   ok("Silben mit Wiederholung (lol, lel) bleiben in der Silbenstatistik", Object.keys(sanitizeSyl({ lol: [1.5], lel: [2], "Bad1": [1] })).join() === "lol,lel" && sanitizeFixes({ all: "al" }).all === "al");
+  var tt1 = sylStat([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+  ok("Silbenzeit: letzte 12, die 2 längsten gestrichen", tt1.times.length === 12 && tt1.dropped.length === 2 && Math.abs(tt1.avg - 6.5) < 1e-9 && sylStat([5, 9, 7]).dropped.length === 0 && sylStat([5, 9, 7, 1]).dropped.length === 1 && sylStat([]).avg === null);
+  var pr = sylProbs(M, [2,3], 0, 50, null, 50, ["ol"]), ps = 0; Object.keys(pr).forEach(function(q){ ps += pr[q]; });
+  ok("Wahrscheinlichkeiten: Summe 100 %, gesperrte Silbe fehlt", Math.abs(ps - 1) < 1e-9 && pr.ol === undefined && pr.lo > 0);
+  ok("Sperren global als Liste", JSON.stringify(sanitizeBlocked(["Ol", "ol", "x"])) === '["ol"]');
   return r;
 }
 
@@ -775,7 +810,7 @@ function runTests(){
 (function(){
   var $ = function(id){ return document.getElementById(id); };
   var KEY = "silbenzauber.v1", canStore = true;
-  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, fixes: {}, syl: {}, synBal: 50, preview: false, blocked: {}, sync: { url: "", code: "", baseTs: null, baseHash: "", mod: 0 } };
+  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, fixes: {}, syl: {}, synBal: 50, preview: false, blocked: [], sync: { url: "", code: "", baseTs: null, baseHash: "", mod: 0 } };
   // Speicher im Browser (localStorage), alles in try/catch: die App läuft auch ohne Speicher
   function loadStore(o){
       if (!o || typeof o !== "object") return;
@@ -867,6 +902,19 @@ function runTests(){
       return '<div class="set"><button type="button" class="say" data-k="' + k + '">' + k + ' → ' + store.fixes[k] + '</button><button type="button" class="x" data-k="' + k + '" aria-label="' + k + ' löschen">×</button></div>';
     }).join("");
   }
+  var curPage = "setup", fitRaf = 0, FITP = { setup: 1, practice: 1, end: 1 };
+  // Passt Start-, Übungs- und Endseite notfalls verkleinert auf den Bildschirm (kein Scrollen nötig)
+  function fitSoon(){ cancelAnimationFrame(fitRaf); fitRaf = requestAnimationFrame(fit); }
+  function fit(){
+    var ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) return;   // nicht während der Eingabe (Tastatur)
+    var m = document.querySelector("main"), i, h, z = 1;
+    m.style.zoom = ""; m.style.minHeight = ""; m.style.removeProperty("--z");
+    if (!FITP[curPage] || !("zoom" in m.style)) return;
+    var cs = getComputedStyle(document.documentElement), avail = window.innerHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+    m.style.minHeight = "0"; h = m.getBoundingClientRect().height;
+    for (i = 0; i < 4 && h > avail + 1 && z > 0.6; i++){ z = Math.max(0.6, z * avail / h); m.style.zoom = z; h = m.getBoundingClientRect().height; }
+    m.style.minHeight = ""; if (z < 1) m.style.setProperty("--z", z);
+  }
   function closeApp(){
     try { if (document.fullscreenElement){ document.exitFullscreen(); return; } } catch (e) {}
     try { window.close(); } catch (e) {}
@@ -893,7 +941,7 @@ function runTests(){
     $("gear").classList.toggle("hidden", id !== "setup");
     $("closeApp").classList.toggle("hidden", id !== "setup");
     $("statsBtn").classList.toggle("hidden", id !== "setup");
-    restart($(id), "enter", 350);
+    curPage = id; if (id === "setup") renderSets(); restart($(id), "enter", 350); fitSoon();
     $("lawn").classList.toggle("dyn", id === "setup" || id === "end");
     if (id === "practice") bfHold(); else bfRelease();   // Wiese: dauerhaft lebendig nur auf Auswahl- und Endseite
     window.scrollTo(0, 0);
@@ -901,7 +949,7 @@ function runTests(){
   function renderSets(){
     $("setsBox").classList.toggle("hidden", !store.sets.length);
     $("sets").innerHTML = store.sets.map(function(k){
-      return '<div class="set"><button type="button" class="pick" data-k="' + k + '">' + disp(k) + '</button><button type="button" class="pen" data-k="' + k + '" aria-label="Silben zu ' + disp(k) + ' ansehen"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19z M14 7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button><button type="button" class="x" data-k="' + k + '" aria-label="' + disp(k) + ' löschen">×</button></div>';
+      return '<div class="set"><button type="button" class="pick" data-k="' + k + '"><span>' + disp(k) + '</span>' + diffLabel(k) + '</button><button type="button" class="pen" data-k="' + k + '" aria-label="Silben zu ' + disp(k) + ' ansehen"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19z M14 7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button><button type="button" class="x" data-k="' + k + '" aria-label="' + disp(k) + ' löschen">×</button></div>';
     }).join("");
   }
   function refresh(){
@@ -913,6 +961,8 @@ function runTests(){
     else if (!enough) msg = "Aus diesen Buchstaben lassen sich noch zu wenige Silben bilden. Bitte weitere Buchstaben (auch Vokale) hinzufügen oder in den Einstellungen andere Silbenlängen wählen.";
     $("msg").textContent = msg;
     $("start").disabled = !enough;
+    $("curDiff").textContent = (store.auto && letters.length) ? "Aktuelle Automatik-Schwierigkeit: " + diffText(diffFor(letters)) : "";
+    fitSoon();
     $("saveSet").disabled = !letters.length;
     store.last = letters.join(""); persist();
   }
@@ -954,23 +1004,41 @@ function runTests(){
   // ---- Silben-Übersicht: alle möglichen Silben einer Buchstabenkombination, einzelne Silben sperren ----
   var sylKey = "", sylLetters = [];
   function bKey(ls){ return ls.slice().sort().join(""); }
-  function blockedFor(ls){ return store.blocked[bKey(ls)] || []; }
+  function blockedFor(ls){ return store.blocked; }
   function openSyls(k){ sylLetters = parseLetters(k); sylKey = bKey(sylLetters); renderSyls(); show("syls"); }
+  var tOpen = {}, sylHere = [];   // aufgeklappte Silbenzeiten; Silben der aktuellen Silbenseite
+  function fmt1(x){ return String(Math.round(x * 10) / 10).replace(".", ","); }
+  function fmtPct(p){ var v = p * 100; return String(v >= 10 ? Math.round(v) : Math.round(v * 10) / 10).replace(".", ",") + " %"; }
+  // aktuelle Schwierigkeit [Länge, Silben] einer Buchstabenkombination (mit Automatik der gespeicherte Stand)
+  function diffFor(ls){
+    var bal = store.lenBal, sd = store.synBal;
+    if (store.auto){ bal = startVal(store.stats, ls, store.lens, "bal", store.lenBal); sd = store.lens.length > 1 ? sdFromLen(bal) : startVal(store.stats, ls, store.lens, "sd", store.synBal); }
+    return [bal, sd];
+  }
+  function diffText(df){ return (store.lens.length > 1 ? "Länge " + df[0] + " %, " : "") + "Silben " + df[1] + " %"; }
+  function diffLabel(k){ return store.auto ? '<small>' + diffText(diffFor(parseLetters(k))) + '</small>' : ""; }
+  function sylAvgMap(){ var sa = {}; Object.keys(store.syl).forEach(function(k){ sa[k] = sylStat(store.syl[k]).avg; }); return sa; }
+  function sylTimes(sy){   // die letzten 12 Zeiten, gestrichene durchgestrichen
+    var st = sylStat(store.syl[sy]);
+    return '<div class="tdet"><div class="tchips">' + st.times.map(function(v, i){ return [v, i]; }).reverse().map(function(q){ return '<span class="' + (st.dropped.indexOf(q[1]) >= 0 ? 'dr' : 'ok') + '">' + fmt1(q[0]) + '</span>'; }).join("") + '</div><p class="hint">Neueste zuerst. Durchschnitt ' + fmt1(st.avg) + ' s' + (st.dropped.length ? ', ohne die ' + st.dropped.length + ' längsten (durchgestrichen)' : '') + '.</p></div>';
+  }
   function renderSyls(){
-    var bl = store.blocked[sylKey] || [], h = "", tot = 0, off = 0;
+    var bl = store.blocked, h = "", tot = 0, off = 0, df = diffFor(sylLetters), pr = sylProbs(sylLetters, store.lens, store.factor, df[0], sylAvgMap(), df[1], bl);
+    sylHere = [];
     store.lens.slice().sort().forEach(function(L){
       var list = buildSyllables(sylLetters, L).sort();
       if (!list.length) return;
       h += '<p class="lenh">Silben mit ' + L + ' Buchstaben (' + list.length + ')</p>';
       list.forEach(function(sy){
-        var b = bl.indexOf(sy) >= 0, t = store.syl[sy] ? String(Math.round(avgLast(store.syl[sy], 10) * 10) / 10).replace(".", ",") + " s" : "";
-        tot++; if (b) off++;
-        h += '<div class="sylrow' + (b ? ' off' : '') + '"><span class="w">' + sy.toUpperCase() + '</span><span class="t">' + t + '</span><button type="button" class="tg" data-s="' + sy + '" aria-pressed="' + b + '">' + (b ? "Gesperrt" : "Sperren") + '</button></div>';
+        var b = bl.indexOf(sy) >= 0, st = store.syl[sy] ? sylStat(store.syl[sy]) : null;
+        sylHere.push(sy); tot++; if (b) off++;
+        h += '<div class="sylrow' + (b ? ' off' : '') + '"><span class="w">' + sy.toUpperCase() + '</span><span class="t">' + (st ? '<span class="tm" role="button" tabindex="0" data-s="' + sy + '">' + fmt1(st.avg) + ' s</span>' : '') + '<span class="pc">' + fmtPct(pr[sy] || 0) + '</span></span><button type="button" class="tg" data-s="' + sy + '" aria-pressed="' + b + '">' + (b ? "Gesperrt" : "Sperren") + '</button>' + (st && tOpen[sy] ? sylTimes(sy) : "") + '</div>';
       });
     });
+    var hereOff = sylHere.filter(function(x){ return bl.indexOf(x) >= 0; }).length;
     $("sylsTitle").textContent = disp(sylLetters.join(""));
-    $("sylsInfo").textContent = tot ? "Aktiv: " + (tot - off) + " von " + tot + " Silben. Gesperrte Silben kommen in der Übung nicht vor. Gezeigt werden die in den Einstellungen gewählten Silbenlängen." + (tot - off < 3 ? " Achtung: Bei weniger als 3 aktiven Silben wird die Sperre ignoriert." : "") : "Mit diesen Buchstaben lassen sich keine Silben bilden.";
-    $("sylsList").innerHTML = h; $("sylsClear").classList.toggle("hidden", !bl.length);
+    $("sylsInfo").textContent = tot ? "Aktiv: " + (tot - off) + " von " + tot + " Silben. Gesperrte Silben kommen in keiner Übung vor, bei allen Buchstabenkombinationen (insgesamt gesperrt: " + bl.length + "). Rechts: Durchschnittszeit (antippen zeigt die letzten 12 Zeiten) und darunter die ungefähre Wahrscheinlichkeit pro Aufgabe bei der aktuellen Schwierigkeit (" + diffText(df) + ")." + (tot - off < 3 ? " Achtung: Bei weniger als 3 aktiven Silben wird die Sperre ignoriert." : "") : "Mit diesen Buchstaben lassen sich keine Silben bilden.";
+    $("sylsList").innerHTML = h; $("sylsClear").classList.toggle("hidden", !hereOff);
   }
   function renderPrev(){ $("prevOn").setAttribute("aria-pressed", store.preview); $("prevOff").setAttribute("aria-pressed", !store.preview); }
   function renderAutoTable(){
@@ -998,9 +1066,9 @@ function runTests(){
     st.combos.forEach(function(c){
       h += '<div class="card"><div class="srow"><div><div class="ct">' + disp(c.order || c.letters) + '</div><span style="font-size:1rem">' + (c.lens.length > 1 ? Math.min.apply(null, c.lens) + "-" + Math.max.apply(null, c.lens) : c.lens[0]) + ' Buchstaben, ' + c.rounds + ' Runden' + (typeof c.bal === "number" && typeof c.sd === "number" ? ', Schwierigkeit ' + c.bal + ' %/' + c.sd + ' %' : '') + '</span></div>' + delBtn(c.key) + '</div>' + chartSvg(c.times, c.rounds) + '</div>';
     });
-    var ks = Object.keys(store.syl).filter(function(k){ return store.syl[k].length; }).sort(function(a, b){ return avgLast(store.syl[b], 10) - avgLast(store.syl[a], 10); });
+    var ks = Object.keys(store.syl).filter(function(k){ return store.syl[k].length; }).sort(function(a, b){ return sylStat(store.syl[b]).avg - sylStat(store.syl[a]).avg; });
     h += '<div class="card"><div class="srow"><div style="flex:1"><details id="sylDet"' + (wasOpen ? ' open' : '') + '><summary style="font-size:1.3rem">Zeit pro Silbe (' + ks.length + ')</summary>' +
-      (ks.length ? '<p class="hint">Durchschnitt der letzten 10 Mal, langsamste Silbe zuerst.</p>' + ks.map(function(k){ var a = Math.round(avgLast(store.syl[k], 10) * 10) / 10; return '<div class="srow" style="margin-top:6px"><span class="ct">' + k.toUpperCase() + '</span><span>' + String(a).replace(".", ",") + ' s (' + store.syl[k].length + 'x)</span></div>'; }).join("") : '<p class="hint">Noch keine Silben gespielt.</p>') +
+      (ks.length ? '<p class="hint">Durchschnitt der letzten 12 Mal ohne die 2 längsten, langsamste Silbe zuerst. Zeit antippen zeigt die einzelnen Zeiten.</p>' + ks.map(function(k){ var st = sylStat(store.syl[k]); return '<div class="srow" style="margin-top:6px;flex-wrap:wrap"><span class="ct">' + k.toUpperCase() + '</span><span><span class="tm" role="button" tabindex="0" data-s="' + k + '">' + fmt1(st.avg) + ' s</span> (' + store.syl[k].length + 'x)</span>' + (tOpen[k] ? sylTimes(k) : '') + '</div>'; }).join("") : '<p class="hint">Noch keine Silben gespielt.</p>') +
       '</details></div>' + delBtn("syl") + '</div></div>';
     $("statsList").innerHTML = h;
   }
@@ -1047,10 +1115,8 @@ function runTests(){
   function startRound(){
     try {
       if (countSyllables(letters, store.lens, 3) < 3){ show("setup"); refresh(); return; }
-      curBal = store.lenBal; curSd = store.synBal;
-      if (store.auto){ curBal = startVal(store.stats, letters, store.lens, "bal", store.lenBal); curSd = store.lens.length > 1 ? sdFromLen(curBal) : startVal(store.stats, letters, store.lens, "sd", store.synBal); }
-      var sa = {}; Object.keys(store.syl).forEach(function(k){ sa[k] = avgLast(store.syl[k], 10); });
-      round = makeRound(letters, store.lens, store.factor, 20, curBal, sa, curSd, blockedFor(letters)); idx = 0; prevShown = "";
+      var df = diffFor(letters), sa = sylAvgMap(); curBal = df[0]; curSd = df[1];
+      round = makeRound(letters, store.lens, store.factor, 20, curBal, sa, curSd, store.blocked); idx = 0; prevShown = "";
       cased = round.map(function(x){ return randomCase(x); });   // Schreibweise vorab festlegen, damit die Vorschau stimmt
       show("practice"); showTask();
     } catch (e) { show("setup"); $("msg").textContent = "Etwas ist schiefgelaufen. Bitte noch einmal versuchen."; }
@@ -1069,7 +1135,7 @@ function runTests(){
     $("endTitle").textContent = nm ? "Herzlichen Glückwunsch, " + nm + "!" : "Geschafft!";
     var c1 = store.stats.combos[0];
     $("endChart").innerHTML = chartSvg(c1.times, c1.rounds);   // Diagramm der aktuellen Buchstabenkombination
-    $("endTime").innerHTML = '<span style="display:block;font-size:1.1rem;font-weight:500;color:#4b5b7a">Deine Zeit</span>' + (secs === 1 ? "1 Sekunde" : String(secs).replace(".", ",") + " Sekunden");
+    $("endTime").innerHTML = '<span style="display:block;font-size:1.1rem;font-weight:500;color:#4b5b7a">Deine Zeit</span>' + (Math.round(secs) === 1 ? "1 Sekunde" : Math.round(secs) + " Sekunden");
     $("endFb").textContent = fb.text; $("endFb").style.color = fb.kind === "slower" ? "#2f5f9a" : "#23864a";
     show("end");
   }
@@ -1099,6 +1165,8 @@ function runTests(){
   }
 
   $("inp").addEventListener("input", refresh);
+  window.addEventListener("resize", fitSoon); window.addEventListener("orientationchange", fitSoon);
+  document.addEventListener("focusout", function(){ setTimeout(fitSoon, 300); });
   $("start").addEventListener("click", startRound);
   $("next").addEventListener("click", next);
   $("again").addEventListener("click", startRound);
@@ -1132,6 +1200,7 @@ function runTests(){
   $("doneStats").addEventListener("click", function(){ armed = ""; show("setup"); refresh(); });
   // Löschen mit zwei Tipps: erst × (wird zu „Löschen?“), innerhalb von 3 s erneut tippen
   $("statsList").addEventListener("click", function(e){
+    var t = e.target.closest(".tm"); if (t){ var sk = t.getAttribute("data-s"); tOpen[sk] = !tOpen[sk]; renderStats(); return; }
     var b = e.target.closest(".del"); if (!b) return; var k = b.getAttribute("data-k");
     if (armed !== k){ armed = k; clearTimeout(armTimer); armTimer = setTimeout(function(){ armed = ""; renderStats(); }, 3000); renderStats(); return; }
     clearTimeout(armTimer); armed = "";
@@ -1151,12 +1220,13 @@ function runTests(){
   $("syncBtn").addEventListener("click", function(){ syncNow(true); });
   document.addEventListener("visibilitychange", function(){ if (!document.hidden) syncNow(false); });
   $("sylsList").addEventListener("click", function(e){
-    var b = e.target.closest(".tg"); if (!b) return; var sy = b.getAttribute("data-s"), bl = (store.blocked[sylKey] || []).slice(), i = bl.indexOf(sy);
+    var t = e.target.closest(".tm");
+    if (t){ var k = t.getAttribute("data-s"); tOpen[k] = !tOpen[k]; renderSyls(); return; }
+    var b = e.target.closest(".tg"); if (!b) return; var sy = b.getAttribute("data-s"), bl = store.blocked.slice(), i = bl.indexOf(sy);
     if (i >= 0) bl.splice(i, 1); else bl.push(sy);
-    if (bl.length) store.blocked[sylKey] = bl; else delete store.blocked[sylKey];
-    persist(); renderSyls();
+    store.blocked = bl; persist(); renderSyls();
   });
-  $("sylsClear").addEventListener("click", function(){ delete store.blocked[sylKey]; persist(); renderSyls(); });
+  $("sylsClear").addEventListener("click", function(){ store.blocked = store.blocked.filter(function(x){ return sylHere.indexOf(x) < 0; }); persist(); renderSyls(); });
   $("doneSyls").addEventListener("click", function(){ show("setup"); refresh(); });
   // Accordion: es ist immer nur ein Bereich der Einstellungen offen
   var accs = document.querySelectorAll("#settings details.acc");
