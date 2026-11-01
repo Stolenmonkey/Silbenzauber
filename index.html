@@ -202,6 +202,11 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 .tchips .dr{background:#f1f1f1;color:#9aa8c0;text-decoration:line-through}
 .set .pick{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;padding-top:4px;padding-bottom:4px}
 .set .pick small{font-size:.8rem;letter-spacing:0;color:#4b5b7a;font-weight:500}
+.set.sel{border-color:#2f7fd8}.set .nm.on{background:#2f7fd8;color:#fff}
+.set .star{background:#f1f7ff;color:#c9a000;padding:0 14px;border-left:2px solid #d6e3f3;font-size:1.6rem}
+.set .x.arm{background:#e8505b;color:#fff;font-size:1.05rem}
+.kidopt{display:flex;flex-direction:column;align-items:center;line-height:1.25}
+.kidopt small{font-size:.9rem;font-weight:500;opacity:.9}
 </style>
 </head>
 <body>
@@ -231,6 +236,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 
 <!-- SEITE 1: Einstellungen für Erwachsene -->
 <section id="setup" class="card">
+  <button class="btn alt small hidden" id="kidBtn" type="button" style="margin:0 0 16px"></button>
   <label for="inp">Welche Buchstaben sollen geübt werden?</label>
   <input id="inp" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="z. B. O L E">
   <p class="hint" id="curDiff"></p>
@@ -273,9 +279,20 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
     <p style="margin:18px 0 0;font-size:1.15rem">Aktuelle Automatik-Werte</p>
     <div id="autoTab"></div>
   </details>
-  <details class="acc"><summary>Kind</summary>
-    <label for="nameInp" style="display:block;margin-top:6px">Name des Kindes</label>
+  <details class="acc"><summary>Kinder</summary>
+    <p class="hint" style="margin-top:6px">Jedes Kind hat eigene Statistik, Silbenzeiten, Automatik und Silben-Einstellungen. Tippe auf ein Kind, um seine Einstellungen zu bearbeiten. Mit dem Stern (★) legst du das Standardkind fest, sobald mehrere Kinder angelegt sind.</p>
+    <div class="sets" id="kidsSet"></div>
+    <button class="btn alt small" id="kidAdd" type="button">Weiteres Kind hinzufügen</button>
+    <label for="nameInp" style="display:block;margin-top:18px">Name des gewählten Kindes</label>
     <input id="nameInp" class="plain" type="text" maxlength="20" autocomplete="off" placeholder="z. B. Lena">
+    <p style="margin:18px 0 0;font-size:1.15rem">Fortschritt speichern (für dieses Kind)</p>
+    <div class="seg"><button type="button" id="saveProgOff">Aus</button><button type="button" id="saveProgOn">An</button></div>
+    <p class="hint">Aus: Silbenzeiten, Statistik und Automatik-Werte werden nicht gespeichert. Die Einstellungen bleiben erhalten. Praktisch für Gäste oder zum Ausprobieren.</p>
+    <div id="askBox" class="hidden">
+      <p style="margin:18px 0 0;font-size:1.15rem">Beim Start Kind auswählen</p>
+      <div class="seg"><button type="button" id="askOff">Aus</button><button type="button" id="askOn">An</button></div>
+      <p class="hint">An: Beim Öffnen der App wird gefragt, wer übt. Aus: Es startet immer das Standardkind (★) ohne Auswahl.</p>
+    </div>
   </details>
   <details class="acc"><summary>Silben</summary>
     <p style="margin:6px 0 0;font-size:1.15rem">Buchstaben pro Silbe (Mehrfachauswahl)</p>
@@ -316,6 +333,12 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
     <div id="syncMsg" class="spst sp-unk" role="status">Noch nicht eingerichtet.</div>
   </details>
   <div class="endbtns" style="margin-top:18px"><button class="btn" id="saveSettings" type="button" style="flex:1">Speichern</button><button class="btn alt" id="cancelSettings" type="button" style="flex:1">Zurück ohne Speichern</button></div>
+</section>
+
+<!-- SEITE: Kinder-Auswahl -->
+<section id="kidpick" class="card hidden">
+  <h2 style="margin:0 0 4px;font-size:1.7rem">Wer übt heute?</h2>
+  <div id="kidList" style="display:flex;flex-direction:column;gap:12px;margin-top:14px"></div>
 </section>
 
 <!-- SEITE: Statistik -->
@@ -810,33 +833,69 @@ function runTests(){
 (function(){
   var $ = function(id){ return document.getElementById(id); };
   var KEY = "silbenzauber.v1", canStore = true;
-  var store = { last: "", sets: [], name: "", lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, fixes: {}, syl: {}, synBal: 50, preview: false, blocked: [], sync: { url: "", code: "", baseTs: null, baseHash: "", mod: 0 } };
+  var store = { last: "", lasts: {}, cur: "", kids: [], defKid: "", askStart: false, fixes: {}, sync: { url: "", code: "", baseTs: null, baseHash: "", mod: 0 } };
   // Speicher im Browser (localStorage), alles in try/catch: die App läuft auch ohne Speicher
-  function loadStore(o){
-      if (!o || typeof o !== "object") return;
-      store.last = parseLetters(String(o.last || "")).join("");
-      store.sets = (Array.isArray(o.sets) ? o.sets : []).map(function(k){ return parseLetters(String(k)).join(""); }).filter(Boolean).slice(0, 12);
-      store.name = String(o.name || "").slice(0, 20);
-      if (Array.isArray(o.lens)){ var l = o.lens.map(Number).filter(function(x){ return x >= 2 && x <= 4; }); if (l.length) store.lens = l.sort(); }
-      var fa = Number(o.factor); if (fa >= 0 && fa <= 100) store.factor = fa;
-      var lb = Number(o.lenBal); if (o.lenBal != null && lb >= 0 && lb <= 100) store.lenBal = lb;
-      store.auto = o.auto === true;
-      var tg = Math.round(Number(o.target)); if (tg >= 10 && tg <= 600) store.target = tg;
-      var an = Math.round(Number(o.avgN)); if (an >= 1 && an <= 7) store.avgN = an;
-      store.stats = sanitizeStats(o.stats);
-      store.fixes = sanitizeFixes(o.fixes); store.syl = sanitizeSyl(o.syl); var sb = Number(o.synBal); if (o.synBal != null && sb >= 0 && sb <= 100) store.synBal = sb; store.preview = o.preview === true; store.blocked = sanitizeBlocked(o.blocked);
+  // Mehrere Kinder: store.kids = [{ id, d: {Daten des Kindes} }]. Die Daten des gerade gewählten Kindes liegen zusätzlich flach in store
+  // (store.stats, store.syl, store.lens ...), damit der übrige Code unverändert damit arbeitet. commitKid() schreibt sie zurück, loadKid() holt sie.
+  var KID_KEYS = ["name","noSave","sets","lens","factor","lenBal","auto","target","avgN","stats","syl","synBal","preview","blocked"];
+  function blankKid(name){ return { name: name || "", noSave: false, sets: [], lens: [2, 3], factor: 0, lenBal: 50, auto: false, target: 60, avgN: 3, stats: { total: 0, combos: [] }, syl: {}, synBal: 50, preview: false, blocked: [] }; }
+  function newKidId(){ return "k" + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36); }
+  function kidIndex(id){ for (var i = 0; i < store.kids.length; i++) if (store.kids[i].id === id) return i; return -1; }
+  function kidById(id){ var i = kidIndex(id); return i < 0 ? null : store.kids[i]; }
+  function commitKid(){ var k = kidById(store.cur); if (k) KID_KEYS.forEach(function(x){ k.d[x] = store[x]; }); }
+  function loadKid(id){ var k = kidById(id) || store.kids[0]; store.cur = k.id; KID_KEYS.forEach(function(x){ store[x] = k.d[x]; }); store.last = store.lasts[k.id] || ""; }
+  function cleanKid(o){
+    var d = blankKid(""); if (!o || typeof o !== "object") return d;
+    d.name = String(o.name || "").slice(0, 20); d.noSave = o.noSave === true;
+    d.sets = (Array.isArray(o.sets) ? o.sets : []).map(function(k){ return parseLetters(String(k)).join(""); }).filter(Boolean).slice(0, 12);
+    if (Array.isArray(o.lens)){ var l = o.lens.map(Number).filter(function(x){ return x >= 2 && x <= 4; }); if (l.length) d.lens = l.sort(); }
+    var fa = Number(o.factor); if (fa >= 0 && fa <= 100) d.factor = fa;
+    var lb = Number(o.lenBal); if (o.lenBal != null && lb >= 0 && lb <= 100) d.lenBal = lb;
+    d.auto = o.auto === true;
+    var tg = Math.round(Number(o.target)); if (tg >= 10 && tg <= 600) d.target = tg;
+    var an = Math.round(Number(o.avgN)); if (an >= 1 && an <= 7) d.avgN = an;
+    d.stats = sanitizeStats(o.stats); d.syl = sanitizeSyl(o.syl);
+    var sb = Number(o.synBal); if (o.synBal != null && sb >= 0 && sb <= 100) d.synBal = sb;
+    d.preview = o.preview === true; d.blocked = sanitizeBlocked(o.blocked);
+    return d;
   }
-  try { var raw = localStorage.getItem(KEY); if (raw){ var o0 = JSON.parse(raw); loadStore(o0); store.sync = cleanSync(o0.sync); } } catch (e) { canStore = false; }
+  function loadStore(o){
+    if (!o || typeof o !== "object") return;
+    var kids = [];
+    if (Array.isArray(o.kids)){
+      o.kids.slice(0, 8).forEach(function(k){
+        var id = k && typeof k === "object" ? String(k.id || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 24) : "";
+        if (id && !kids.some(function(x){ return x.id === id; })) kids.push({ id: id, d: cleanKid(k.d) });
+      });
+    } else kids.push({ id: "k1", d: cleanKid(o) });   // alte Speicherstände (ein Kind, flach gespeichert) werden zum ersten Kind
+    store.kids = kids; store.fixes = sanitizeFixes(o.fixes); store.askStart = o.askStart === true;
+    store.defKid = String(o.defKid || "");
+    ensureKids();
+  }
+  function ensureKids(){
+    if (!store.kids.length) store.kids = [{ id: "k1", d: blankKid("") }];
+    if (!kidById(store.defKid)) store.defKid = store.kids[0].id;
+  }
+  function saveObj(){ commitKid(); return { kids: store.kids, defKid: store.defKid, askStart: store.askStart, fixes: store.fixes, lasts: store.lasts, sync: store.sync }; }
+  try {
+    var raw = localStorage.getItem(KEY);
+    if (raw){
+      var o0 = JSON.parse(raw); loadStore(o0); store.sync = cleanSync(o0.sync);
+      if (o0.lasts && typeof o0.lasts === "object") Object.keys(o0.lasts).forEach(function(k){ if (kidById(k)) store.lasts[k] = parseLetters(String(o0.lasts[k])).join(""); });
+      else if (o0.last && !Array.isArray(o0.kids)) store.lasts.k1 = parseLetters(String(o0.last)).join("");
+    }
+  } catch (e) { canStore = false; }
+  ensureKids(); loadKid(store.defKid);
   // ---------- Synchronisation über einen Cloudflare Worker ----------
   // Pro Gerät: baseTs/baseHash = Cloud-Stand und Inhalt beim letzten Abgleich. Daraus folgt, wer etwas Neues hat; haben beide Neues, wird gefragt.
-  var SYNC_KEYS = ["sets","name","lens","factor","lenBal","auto","target","avgN","stats","fixes","syl","synBal","preview","blocked"];
   function cleanSync(x){ x = x || {}; return { url: String(x.url || "").slice(0, 200), code: String(x.code || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64), baseTs: typeof x.baseTs === "number" ? x.baseTs : null, baseHash: String(x.baseHash || ""), mod: Number(x.mod) || 0 }; }
-  function snapObj(){ var o = {}; SYNC_KEYS.forEach(function(k){ o[k] = store[k]; }); return o; }
+  function snapObj(){ commitKid(); return { kids: store.kids, defKid: store.defKid, askStart: store.askStart, fixes: store.fixes }; }
+  function roundsOf(d){ if (!d) return 0; var ks = Array.isArray(d.kids) ? d.kids.map(function(k){ return (k && k.d) || {}; }) : [d]; return ks.reduce(function(a, x){ return a + ((x.stats && Number(x.stats.total)) || 0); }, 0); }
   function snapStr(){ return JSON.stringify(snapObj()); }
   function hashStr(t){ var h = 5381, i; for (i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return String(h); }
   var lastSnap = snapStr(), syncing = false, upTimer = null;
   function persist(){
-    try { var cur = snapStr(); if (cur !== lastSnap){ lastSnap = cur; store.sync.mod = Date.now(); } localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { canStore = false; }
+    try { var cur = snapStr(); if (cur !== lastSnap){ lastSnap = cur; store.sync.mod = Date.now(); } store.lasts[store.cur] = store.last; localStorage.setItem(KEY, JSON.stringify(saveObj())); } catch (e) { canStore = false; }
     scheduleUp();
   }
   function cfg(){ return !!store.sync.url && store.sync.code.length >= 16; }
@@ -850,14 +909,17 @@ function runTests(){
   }
   function syncMsg(t){ var e = $("syncMsg"); if (e) e.textContent = t; }
   function okMsg(){ syncMsg("Abgeglichen um " + new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + " Uhr."); }
-  function isEmpty(){ return !store.stats.total && !store.stats.combos.length && !Object.keys(store.syl).length; }
+  function isEmpty(){ var s = snapObj(); return !roundsOf(s) && !s.kids.some(function(k){ return Object.keys(k.d.syl || {}).length || (k.d.stats && k.d.stats.combos.length); }); }
   function applyCloud(sv){
     setSnap = null;
-    var keep = store.last, sy = store.sync;
-    loadStore(sv.data); store.last = keep; store.sync = sy;
+    var old = store.cur, sy = store.sync;
+    store.lasts[old] = store.last;
+    loadStore(sv.data); store.sync = sy;
+    loadKid(kidById(old) ? old : store.defKid); if (store.cur !== old) syncInput();
     lastSnap = snapStr(); sy.baseTs = sv.ts; sy.baseHash = hashStr(lastSnap); sy.mod = sv.ts;
     persist(); renderSets(); refresh();
     if (!$("settings").classList.contains("hidden")) renderSettings();
+    if (!$("kidpick").classList.contains("hidden")) renderPicker();
   }
   function upload(expect){
     var ts = Date.now();
@@ -869,8 +931,8 @@ function runTests(){
   }
   function ask(sv){
     return new Promise(function(res){
-      var fmt = function(t){ return t ? new Date(t).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "unbekannt"; }, cn = sv.data && sv.data.stats ? sv.data.stats.total : 0, lm = store.sync.mod, newer = lm > sv.ts;
-      $("dlgLocal").textContent = "Dieses Gerät: " + store.stats.total + " Runden, zuletzt geändert " + fmt(lm) + (newer ? " (neuer)" : "");
+      var fmt = function(t){ return t ? new Date(t).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "unbekannt"; }, cn = roundsOf(sv.data), lm = store.sync.mod, newer = lm > sv.ts;
+      $("dlgLocal").textContent = "Dieses Gerät: " + roundsOf(snapObj()) + " Runden, zuletzt geändert " + fmt(lm) + (newer ? " (neuer)" : "");
       $("dlgCloud").textContent = "Cloud: " + cn + " Runden, zuletzt geändert " + fmt(sv.ts) + (newer ? "" : " (neuer)");
       $("syncDlg").classList.remove("hidden");
       $("dlgKeep").onclick = function(){ $("syncDlg").classList.add("hidden"); res(false); };
@@ -916,7 +978,7 @@ function runTests(){
     for (i = 0; i < 4 && h > avail + 1 && z > 0.6; i++){ z = Math.max(0.6, z * avail / h); m.style.zoom = z; h = m.getBoundingClientRect().height; }
     m.style.minHeight = ""; if (z < 1) m.style.setProperty("--z", z);
   }
-  var SET_KEYS = ["name","lens","factor","lenBal","auto","target","avgN","fixes","synBal","preview"], setSnap = null;
+  var setSnap = null;
   function closeApp(){
     try { if (document.fullscreenElement){ document.exitFullscreen(); return; } } catch (e) {}
     try { window.close(); } catch (e) {}
@@ -935,7 +997,7 @@ function runTests(){
   function restart(el, cls, ms){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(function(){ el.classList.remove(cls); }, ms); }
   function show(id){
     clearTimeout(speakTimer); if (canSpeak) { try { speechSynthesis.cancel(); } catch (e) {} }
-    ["setup","practice","end","settings","stats","syls"].forEach(function(x){ $(x).classList.toggle("hidden", x !== id); });
+    ["setup","practice","end","settings","stats","syls","kidpick"].forEach(function(x){ $(x).classList.toggle("hidden", x !== id); });
     $("endBtns").classList.toggle("hidden", id !== "end");
     $("topbar").classList.toggle("hidden", id === "practice" || id === "end");
     $("headline").classList.toggle("hidden", id === "practice" || id === "end");
@@ -966,6 +1028,7 @@ function runTests(){
     $("curDiff").textContent = (store.auto && letters.length) ? "Aktuelle Automatik-Schwierigkeit: " + diffText(diffFor(letters)) : "";
     fitSoon();
     $("saveSet").disabled = !letters.length;
+    renderKidBtn();
     store.last = letters.join(""); persist();
   }
   // ---- Sprachausgabe-Status und Installationsanleitung ----
@@ -998,10 +1061,56 @@ function runTests(){
   }
   function renderSettings(){
     renderSpeech(); renderFixes();
-    $("nameInp").value = store.name;
+    $("nameInp").value = store.name; renderKids();
     Array.prototype.forEach.call(document.querySelectorAll(".lenbtn"), function(b){ b.setAttribute("aria-pressed", store.lens.indexOf(+b.getAttribute("data-len")) >= 0); });
     $("fac").value = store.factor; $("facVal").textContent = store.factor + " %"; $("syn").value = store.synBal; $("synVal").textContent = store.synBal + " %";
     renderBal(); renderAuto(); renderPrev(); $("syncUrl").value = store.sync.url; $("syncCode").value = store.sync.code;
+  }
+  // ---- Mehrere Kinder ----
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function kidName(k, i){ return k.d.name || "Kind " + (i + 1); }
+  var kidArm = "", kidArmTimer = null;
+  function syncInput(){ $("inp").value = store.last.split("").join(" "); }
+  function switchKid(id){
+    if (id === store.cur || !kidById(id)) return;
+    commitKid(); store.lasts[store.cur] = store.last; loadKid(id); syncInput(); persist();
+  }
+  function delKid(id){
+    if (store.kids.length < 2 || !kidById(id)) return;
+    commitKid(); var was = id === store.cur;
+    store.kids = store.kids.filter(function(k){ return k.id !== id; }); delete store.lasts[id];
+    if (!kidById(store.defKid)) store.defKid = store.kids[0].id;
+    if (was){ loadKid(store.defKid); syncInput(); }
+    persist();
+  }
+  function statLabel(){ commitKid(); var i = kidIndex(store.cur); return store.kids.length > 1 && i >= 0 ? "Beendete Runden von " + esc(kidName(store.kids[i], i)) : "Beendete Runden insgesamt"; }
+  function renderKidBtn(){
+    var b = $("kidBtn"); commitKid();
+    var i = kidIndex(store.cur), show1 = store.kids.length > 1 && i >= 0;
+    b.classList.toggle("hidden", !show1); if (!show1) return;
+    b.innerHTML = "Kind: " + esc(kidName(store.kids[i], i)) + (store.noSave ? " (ohne Speichern)" : "") + " &middot; wechseln";
+  }
+  function renderPicker(){
+    commitKid();
+    $("kidList").innerHTML = store.kids.map(function(k, i){
+      return '<button type="button" class="btn" data-id="' + k.id + '"><span class="kidopt">' + esc(kidName(k, i)) + (k.d.noSave ? '<small>ohne Fortschritt speichern</small>' : '') + '</span></button>';
+    }).join("");
+  }
+  function renderKidList(){
+    commitKid(); var multi = store.kids.length > 1;
+    $("kidsSet").innerHTML = store.kids.map(function(k, i){
+      var on = k.id === store.cur, def = k.id === store.defKid, arm = kidArm === k.id;
+      return '<div class="set' + (on ? ' sel' : '') + '"><button type="button" class="nm' + (on ? ' on' : '') + '" data-id="' + k.id + '">' + esc(kidName(k, i)) + '</button>' +
+        (multi ? '<button type="button" class="star" data-id="' + k.id + '" aria-pressed="' + def + '" aria-label="' + (def ? 'Ist das Standardkind' : 'Als Standardkind festlegen') + '">' + (def ? '★' : '☆') + '</button>' +
+        '<button type="button" class="x' + (arm ? ' arm' : '') + '" data-id="' + k.id + '" aria-label="Kind löschen">' + (arm ? 'Löschen?' : '×') + '</button>' : '') + '</div>';
+    }).join("");
+  }
+  function renderKids(){
+    renderKidList();
+    $("kidAdd").disabled = store.kids.length >= 8;
+    $("saveProgOn").setAttribute("aria-pressed", !store.noSave); $("saveProgOff").setAttribute("aria-pressed", store.noSave);
+    $("askBox").classList.toggle("hidden", store.kids.length < 2);
+    $("askOn").setAttribute("aria-pressed", store.askStart); $("askOff").setAttribute("aria-pressed", !store.askStart);
   }
   // ---- Silben-Übersicht: alle möglichen Silben einer Buchstabenkombination, einzelne Silben sperren ----
   var sylKey = "", sylLetters = [];
@@ -1063,7 +1172,7 @@ function runTests(){
   function delBtn(k){ return armed === k ? '<button type="button" class="del arm" data-k="' + k + '">Löschen?</button>' : '<button type="button" class="del" data-k="' + k + '" aria-label="Statistik zurücksetzen">×</button>'; }
   function renderStats(){
     var d0 = $("sylDet"), wasOpen = !!(d0 && d0.open);
-    var st = store.stats, h = '<div class="card"><div class="srow"><div><div class="num">' + st.total + '</div>Beendete Runden insgesamt</div>' + delBtn("total") + '</div></div>';
+    var st = store.stats, h = '<div class="card"><div class="srow"><div><div class="num">' + st.total + '</div>' + statLabel() + '</div>' + delBtn("total") + '</div></div>';
     if (!st.combos.length) h += '<div class="card">Noch keine Statistik. Sobald eine Runde komplett beendet wurde, erscheint sie hier.</div>';
     st.combos.forEach(function(c){
       h += '<div class="card"><div class="srow"><div><div class="ct">' + disp(c.order || c.letters) + '</div><span style="font-size:1rem">' + (c.lens.length > 1 ? Math.min.apply(null, c.lens) + "-" + Math.max.apply(null, c.lens) : c.lens[0]) + ' Buchstaben, ' + c.rounds + ' Runden' + (typeof c.bal === "number" && typeof c.sd === "number" ? ', Schwierigkeit ' + c.bal + ' %/' + c.sd + ' %' : '') + '</span></div>' + delBtn(c.key) + '</div>' + chartSvg(c.times, c.rounds) + '</div>';
@@ -1126,9 +1235,9 @@ function runTests(){
   function showEnd(){
     var nm = store.name, secs = Math.round((Date.now() - roundStart) / 100) / 10;
     var key = comboKey(letters, store.lens), old = store.stats.combos.filter(function(c){ return c.key === key; })[0];
-    var prevT = old && old.times.length ? avgLast(old.times, store.avgN) : null, fb = feedback(prevT, secs);
-    store.stats = recordRound(store.stats, letters, store.lens, secs);   // nur komplett beendete Runden zählen
-    if (store.auto){
+    var prevT = old && old.times.length ? avgLast(old.times, store.avgN) : null, fb = store.noSave ? { kind: "first", text: "Prima gemacht, weiter so!" } : feedback(prevT, secs);
+    if (!store.noSave) store.stats = recordRound(store.stats, letters, store.lens, secs);   // nur komplett beendete Runden zählen (nicht bei „Fortschritt aus“)
+    if (store.auto && !store.noSave){
       var c0 = store.stats.combos[0], tm = c0.times;
       if (store.lens.length > 1){ c0.bal = autoAdjust(curBal, tm, store.target, store.avgN); c0.sd = sdFromLen(c0.bal); }
       else { c0.bal = curBal; c0.sd = autoAdjust(curSd, tm, store.target, store.avgN); }   // eine Länge: nur die Silbenschwierigkeit bewegt sich
@@ -1136,7 +1245,7 @@ function runTests(){
     persist();
     $("endTitle").textContent = nm ? "Herzlichen Glückwunsch, " + nm + "!" : "Geschafft!";
     var c1 = store.stats.combos[0];
-    $("endChart").innerHTML = chartSvg(c1.times, c1.rounds);   // Diagramm der aktuellen Buchstabenkombination
+    $("endChart").innerHTML = (store.noSave || !c1) ? "" : chartSvg(c1.times, c1.rounds);   // Diagramm der aktuellen Buchstabenkombination
     $("endTime").innerHTML = '<span style="display:block;font-size:1.1rem;font-weight:500;color:#4b5b7a">Deine Zeit</span>' + (Math.round(secs) === 1 ? "1 Sekunde" : Math.round(secs) + " Sekunden");
     $("endFb").textContent = fb.text; $("endFb").style.color = fb.kind === "slower" ? "#2f5f9a" : "#23864a";
     show("end");
@@ -1160,7 +1269,7 @@ function runTests(){
   }
   function next(){
     if (locked) return;
-    recordSyl(store.syl, round[idx], Math.round((Date.now() - sylStart) / 100) / 10); persist();
+    if (!store.noSave){ recordSyl(store.syl, round[idx], Math.round((Date.now() - sylStart) / 100) / 10); persist(); }
     if (idx >= 19){ showEnd(); return; }
     idx++; showTask();
     restart($("pbarOwl"), "act", 800); burst(); restart($("spark"), "go", 1100); restart($("lawn"), "act", 1500); bfStep();   // Eule hüpft, Sternchen um die Silbe (nur bei „Weiter“)
@@ -1176,8 +1285,8 @@ function runTests(){
   $("endStats").addEventListener("click", function(){ armed = ""; renderStats(); show("stats"); });
   $("quit").addEventListener("click", function(){ show("setup"); refresh(); });     // X: Runde beenden
   $("gear").addEventListener("click", function(){
-    var v = {}; SET_KEYS.forEach(function(k){ v[k] = store[k]; });
-    setSnap = JSON.stringify({ v: v, url: store.sync.url, code: store.sync.code });   // Stand beim Öffnen, für „Zurück ohne Speichern“
+    commitKid(); store.lasts[store.cur] = store.last;
+    setSnap = JSON.stringify({ k: store.kids, cur: store.cur, def: store.defKid, ask: store.askStart, fixes: store.fixes, url: store.sync.url, code: store.sync.code });   // Stand beim Öffnen, für „Zurück ohne Speichern“
     renderSettings(); show("settings");
   });
   $("closeApp").addEventListener("click", closeApp);
@@ -1243,13 +1352,34 @@ function runTests(){
   $("cancelSettings").addEventListener("click", function(){
     if (setSnap){
       var o = JSON.parse(setSnap);
-      SET_KEYS.forEach(function(k){ store[k] = o.v[k]; });
+      store.kids = o.k; store.defKid = o.def; store.askStart = o.ask; store.fixes = o.fixes; loadKid(o.cur); syncInput();
       if (store.sync.url !== o.url || store.sync.code !== o.code){ store.sync.url = o.url; store.sync.code = o.code; syncReset(); }
       persist();
     }
     setSnap = null; show("setup"); refresh();
   });
-  $("nameInp").addEventListener("input", function(){ store.name = $("nameInp").value.trim().slice(0, 20); persist(); });
+  $("nameInp").addEventListener("input", function(){ store.name = $("nameInp").value.trim().slice(0, 20); persist(); renderKidList(); });
+  $("kidsSet").addEventListener("click", function(e){
+    var b = e.target.closest("button"); if (!b) return; var id = b.getAttribute("data-id");
+    if (b.classList.contains("nm")){ switchKid(id); renderSettings(); }
+    else if (b.classList.contains("star")){ store.defKid = id; persist(); renderKids(); }
+    else if (b.classList.contains("x")){
+      if (kidArm !== id){ kidArm = id; clearTimeout(kidArmTimer); kidArmTimer = setTimeout(function(){ kidArm = ""; renderKidList(); }, 3000); renderKidList(); return; }
+      clearTimeout(kidArmTimer); kidArm = ""; delKid(id); renderSettings();
+    }
+  });
+  $("kidAdd").addEventListener("click", function(){
+    if (store.kids.length >= 8) return;
+    commitKid(); store.lasts[store.cur] = store.last;
+    var k = { id: newKidId(), d: blankKid("") }; store.kids.push(k); loadKid(k.id); syncInput(); persist(); renderSettings();
+    $("nameInp").focus();
+  });
+  $("saveProgOn").addEventListener("click", function(){ store.noSave = false; persist(); renderKids(); });
+  $("saveProgOff").addEventListener("click", function(){ store.noSave = true; persist(); renderKids(); });
+  $("askOn").addEventListener("click", function(){ store.askStart = true; persist(); renderKids(); });
+  $("askOff").addEventListener("click", function(){ store.askStart = false; persist(); renderKids(); });
+  $("kidBtn").addEventListener("click", function(){ renderPicker(); show("kidpick"); });
+  $("kidList").addEventListener("click", function(e){ var b = e.target.closest("button"); if (!b) return; switchKid(b.getAttribute("data-id")); show("setup"); refresh(); });
   $("prevOn").addEventListener("click", function(){ store.preview = true; persist(); renderPrev(); });
   $("prevOff").addEventListener("click", function(){ store.preview = false; persist(); renderPrev(); });
   $("autoOn").addEventListener("click", function(){ store.auto = true; persist(); renderAuto(); renderBal(); });
@@ -1328,7 +1458,9 @@ function runTests(){
   });
   if (!canStore) $("saveSet").classList.add("hidden");
   $("inp").value = store.last.split("").join(" ");   // zuletzt benutzte Buchstaben wiederherstellen
-  show("setup"); renderSets(); refresh(); syncNow(false);
+  if (store.askStart && store.kids.length > 1){ renderPicker(); show("kidpick"); }   // Auswahl beim Start
+  else { show("setup"); renderSets(); refresh(); }
+  syncNow(false);
 
   if (location.search.indexOf("test") >= 0){ $("tests").classList.remove("hidden"); $("tests").textContent = runTests().join("\n"); }
 })();
