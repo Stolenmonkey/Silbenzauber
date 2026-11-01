@@ -315,7 +315,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
     <button class="btn alt small" id="syncBtn" type="button">Jetzt abgleichen</button>
     <div id="syncMsg" class="spst sp-unk" role="status">Noch nicht eingerichtet.</div>
   </details>
-  <button class="btn" id="doneSet" type="button" style="margin-top:18px">Fertig</button>
+  <div class="endbtns" style="margin-top:18px"><button class="btn" id="saveSettings" type="button" style="flex:1">Speichern</button><button class="btn alt" id="cancelSettings" type="button" style="flex:1">Zurück ohne Speichern</button></div>
 </section>
 
 <!-- SEITE: Statistik -->
@@ -852,6 +852,7 @@ function runTests(){
   function okMsg(){ syncMsg("Abgeglichen um " + new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + " Uhr."); }
   function isEmpty(){ return !store.stats.total && !store.stats.combos.length && !Object.keys(store.syl).length; }
   function applyCloud(sv){
+    setSnap = null;
     var keep = store.last, sy = store.sync;
     loadStore(sv.data); store.last = keep; store.sync = sy;
     lastSnap = snapStr(); sy.baseTs = sv.ts; sy.baseHash = hashStr(lastSnap); sy.mod = sv.ts;
@@ -915,6 +916,7 @@ function runTests(){
     for (i = 0; i < 4 && h > avail + 1 && z > 0.6; i++){ z = Math.max(0.6, z * avail / h); m.style.zoom = z; h = m.getBoundingClientRect().height; }
     m.style.minHeight = ""; if (z < 1) m.style.setProperty("--z", z);
   }
+  var SET_KEYS = ["name","lens","factor","lenBal","auto","target","avgN","fixes","synBal","preview"], setSnap = null;
   function closeApp(){
     try { if (document.fullscreenElement){ document.exitFullscreen(); return; } } catch (e) {}
     try { window.close(); } catch (e) {}
@@ -1173,7 +1175,11 @@ function runTests(){
   $("change").addEventListener("click", function(){ show("setup"); refresh(); });
   $("endStats").addEventListener("click", function(){ armed = ""; renderStats(); show("stats"); });
   $("quit").addEventListener("click", function(){ show("setup"); refresh(); });     // X: Runde beenden
-  $("gear").addEventListener("click", function(){ renderSettings(); show("settings"); });
+  $("gear").addEventListener("click", function(){
+    var v = {}; SET_KEYS.forEach(function(k){ v[k] = store[k]; });
+    setSnap = JSON.stringify({ v: v, url: store.sync.url, code: store.sync.code });   // Stand beim Öffnen, für „Zurück ohne Speichern“
+    renderSettings(); show("settings");
+  });
   $("closeApp").addEventListener("click", closeApp);
   $("fixAdd").addEventListener("click", function(){
     var k = $("fixSyl").value.toLowerCase().replace(/[^a-z]/g, ""), v = $("fixTxt").value.trim().toLowerCase();
@@ -1233,7 +1239,16 @@ function runTests(){
   Array.prototype.forEach.call(accs, function(d){
     d.addEventListener("toggle", function(){ if (d.open) Array.prototype.forEach.call(accs, function(o){ if (o !== d) o.open = false; }); });
   });
-  $("doneSet").addEventListener("click", function(){ show("setup"); refresh(); });
+  $("saveSettings").addEventListener("click", function(){ setSnap = null; persist(); show("setup"); refresh(); });
+  $("cancelSettings").addEventListener("click", function(){
+    if (setSnap){
+      var o = JSON.parse(setSnap);
+      SET_KEYS.forEach(function(k){ store[k] = o.v[k]; });
+      if (store.sync.url !== o.url || store.sync.code !== o.code){ store.sync.url = o.url; store.sync.code = o.code; syncReset(); }
+      persist();
+    }
+    setSnap = null; show("setup"); refresh();
+  });
   $("nameInp").addEventListener("input", function(){ store.name = $("nameInp").value.trim().slice(0, 20); persist(); });
   $("prevOn").addEventListener("click", function(){ store.preview = true; persist(); renderPrev(); });
   $("prevOff").addEventListener("click", function(){ store.preview = false; persist(); renderPrev(); });
