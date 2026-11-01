@@ -207,6 +207,7 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 .set .x.arm{background:#e8505b;color:#fff;font-size:1.05rem}
 .kidopt{display:flex;flex-direction:column;align-items:center;line-height:1.25}
 .kidopt small{font-size:.9rem;font-weight:500;opacity:.9}
+.atab input[type=number]{width:72px;font-size:1.05rem;padding:6px 8px;margin:0;border-radius:12px}
 </style>
 </head>
 <body>
@@ -236,7 +237,6 @@ body.endpage #endFb{font-size:1.1rem!important;line-height:1.3}
 
 <!-- SEITE 1: Einstellungen für Erwachsene -->
 <section id="setup" class="card">
-  <button class="btn alt small hidden" id="kidBtn" type="button" style="margin:0 0 16px"></button>
   <label for="inp">Welche Buchstaben sollen geübt werden?</label>
   <input id="inp" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="z. B. O L E">
   <p class="hint" id="curDiff"></p>
@@ -1028,7 +1028,6 @@ function runTests(){
     $("curDiff").textContent = (store.auto && letters.length) ? "Aktuelle Automatik-Schwierigkeit: " + diffText(diffFor(letters)) : "";
     fitSoon();
     $("saveSet").disabled = !letters.length;
-    renderKidBtn();
     store.last = letters.join(""); persist();
   }
   // ---- Sprachausgabe-Status und Installationsanleitung ----
@@ -1084,12 +1083,6 @@ function runTests(){
     persist();
   }
   function statLabel(){ commitKid(); var i = kidIndex(store.cur); return store.kids.length > 1 && i >= 0 ? "Beendete Runden von " + esc(kidName(store.kids[i], i)) : "Beendete Runden insgesamt"; }
-  function renderKidBtn(){
-    var b = $("kidBtn"); commitKid();
-    var i = kidIndex(store.cur), show1 = store.kids.length > 1 && i >= 0;
-    b.classList.toggle("hidden", !show1); if (!show1) return;
-    b.innerHTML = "Kind: " + esc(kidName(store.kids[i], i)) + (store.noSave ? " (ohne Speichern)" : "") + " &middot; wechseln";
-  }
   function renderPicker(){
     commitKid();
     $("kidList").innerHTML = store.kids.map(function(k, i){
@@ -1154,9 +1147,11 @@ function runTests(){
   function renderPrev(){ $("prevOn").setAttribute("aria-pressed", store.preview); $("prevOff").setAttribute("aria-pressed", !store.preview); }
   function renderAutoTable(){
     var cs = store.stats.combos, f = function(v){ return typeof v === "number" ? v + " %" : "–"; };
+    var inp = function(c, fld, v){ return '<input type="number" inputmode="numeric" min="0" max="100" step="5" data-k="' + esc(c.key) + '" data-f="' + fld + '" value="' + (typeof v === "number" ? v : "") + '" placeholder="–" aria-label="' + (fld === "bal" ? "Länge" : "Silben") + ' in Prozent für ' + disp(c.letters) + '"> %'; };
     $("autoTab").innerHTML = cs.length ? '<table class="atab"><thead><tr><th>Buchstaben</th><th>Längen</th><th>Länge</th><th>Silben</th></tr></thead><tbody>' + cs.map(function(c){
-      return '<tr><td class="ct2">' + disp(c.letters) + '</td><td>' + c.lens.join(", ") + '</td><td>' + (c.lens.length > 1 ? f(c.bal) : "–") + '</td><td>' + f(c.sd) + '</td></tr>';
-    }).join("") + '</tbody></table>' : '<p class="hint">Noch keine Kombination gespielt.</p>';
+      var multi = c.lens.length > 1;
+      return '<tr><td class="ct2">' + disp(c.letters) + '</td><td>' + c.lens.join(", ") + '</td><td>' + (multi ? inp(c, "bal", c.bal) : "–") + '</td><td>' + (multi ? f(typeof c.bal === "number" ? sdFromLen(c.bal) : c.sd) : inp(c, "sd", c.sd)) + '</td></tr>';
+    }).join("") + '</tbody></table><p class="hint">Werte antippen und ändern (0 bis 100 %, in 5er-Schritten). Bei mehreren Silbenlängen wird die Silbenschwierigkeit aus der Länge abgeleitet. Die Automatik arbeitet ab dem neuen Wert weiter.</p>' : '<p class="hint">Noch keine Kombination gespielt. Sobald eine Runde beendet wurde, lässt sich die Schwierigkeit hier festlegen.</p>';
   }
   function renderAuto(){
     $("autoOn").setAttribute("aria-pressed", store.auto); $("autoOff").setAttribute("aria-pressed", !store.auto);
@@ -1378,7 +1373,6 @@ function runTests(){
   $("saveProgOff").addEventListener("click", function(){ store.noSave = true; persist(); renderKids(); });
   $("askOn").addEventListener("click", function(){ store.askStart = true; persist(); renderKids(); });
   $("askOff").addEventListener("click", function(){ store.askStart = false; persist(); renderKids(); });
-  $("kidBtn").addEventListener("click", function(){ renderPicker(); show("kidpick"); });
   $("kidList").addEventListener("click", function(e){ var b = e.target.closest("button"); if (!b) return; switchKid(b.getAttribute("data-id")); show("setup"); refresh(); });
   $("prevOn").addEventListener("click", function(){ store.preview = true; persist(); renderPrev(); });
   $("prevOff").addEventListener("click", function(){ store.preview = false; persist(); renderPrev(); });
@@ -1386,6 +1380,16 @@ function runTests(){
   $("autoOff").addEventListener("click", function(){ store.auto = false; persist(); renderAuto(); renderBal(); });
   $("targetInp").addEventListener("input", function(){ var v = Math.round(+$("targetInp").value); if (v >= 10 && v <= 600){ store.target = v; persist(); } });
   $("avgInp").addEventListener("input", function(){ var v = Math.round(+$("avgInp").value); if (v >= 1 && v <= 7){ store.avgN = v; persist(); } });
+  $("autoTab").addEventListener("change", function(e){
+    var i = e.target; if (!i || i.tagName !== "INPUT") return;
+    var c = store.stats.combos.filter(function(x){ return x.key === i.getAttribute("data-k"); })[0], v = parseFloat(i.value);
+    if (c && isFinite(v)){
+      v = Math.max(0, Math.min(100, Math.round(v / 5) * 5));
+      if (i.getAttribute("data-f") === "bal"){ c.bal = v; c.sd = sdFromLen(v); } else c.sd = v;
+      persist();
+    }
+    renderAutoTable();
+  });
   $("targetInp").addEventListener("change", renderAuto); $("avgInp").addEventListener("change", renderAuto);
   $("bal").addEventListener("input", function(){ store.lenBal = +$("bal").value; $("balVal").textContent = store.lenBal + " %"; persist(); });
   $("syn").addEventListener("input", function(){ store.synBal = +$("syn").value; $("synVal").textContent = store.synBal + " %"; persist(); });
